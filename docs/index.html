@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Manager for macOS</title>
+<meta name="description" content="The Windows 11 Task Manager, rebuilt natively for macOS. Heat-mapped processes, live performance graphs, startup apps, services and online updates.">
+<meta property="og:title" content="Task Manager for macOS">
+<meta property="og:description" content="The Windows 11 Task Manager, rebuilt natively for macOS.">
+<meta property="og:image" content="https://mr-who-root.github.io/macos-task-manager/assets/screen-cpu.png">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#f3f3f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#202020" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="assets/icon-64.png">
+<link rel="apple-touch-icon" href="assets/icon.png">
+<style>
+:root {
+  --bg: #f3f3f3;
+  --bg-glow-1: rgba(0, 120, 212, 0.10);
+  --bg-glow-2: rgba(36, 200, 210, 0.10);
+  --text: rgba(0, 0, 0, 0.9);
+  --text-2: rgba(0, 0, 0, 0.62);
+  --text-3: rgba(0, 0, 0, 0.45);
+  --accent: #005fb8;
+  --accent-hover: #0067c0;
+  --on-accent: #fff;
+  --card: rgba(255, 255, 255, 0.72);
+  --card-solid: #fbfbfb;
+  --stroke: rgba(0, 0, 0, 0.07);
+  --stroke-strong: rgba(0, 0, 0, 0.12);
+  --code-bg: #1f1f1f;
+  --code-text: #f3f3f3;
+  --mica: #eef2f6;
+  --layer: #f9f9f9;
+  --row-hover: rgba(0, 0, 0, 0.035);
+  --h0: #fff4c4; --h1: #ffefb4; --h2: #ffe89e; --h3: #ffdc7e; --h4: #ffc25c; --h5: #fa944e;
+  --shadow: 0 24px 60px -20px rgba(0, 40, 90, 0.28), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1c1c1c;
+    --bg-glow-1: rgba(96, 205, 255, 0.10);
+    --bg-glow-2: rgba(36, 200, 210, 0.07);
+    --text: #fff;
+    --text-2: rgba(255, 255, 255, 0.78);
+    --text-3: rgba(255, 255, 255, 0.52);
+    --accent: #60cdff;
+    --accent-hover: #75d4ff;
+    --on-accent: #000;
+    --card: rgba(255, 255, 255, 0.045);
+    --card-solid: #2b2b2b;
+    --stroke: rgba(255, 255, 255, 0.08);
+    --stroke-strong: rgba(255, 255, 255, 0.14);
+    --code-bg: #141414;
+    --mica: #202020;
+    --layer: #272727;
+    --row-hover: rgba(255, 255, 255, 0.05);
+    --h0: #393420; --h1: #423920; --h2: #4d3f1c; --h3: #604c16; --h4: #7c5212; --h5: #984416;
+    --shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1c1c1c; --bg-glow-1: rgba(96, 205, 255, 0.10); --bg-glow-2: rgba(36, 200, 210, 0.07);
+  --text: #fff; --text-2: rgba(255, 255, 255, 0.78); --text-3: rgba(255, 255, 255, 0.52);
+  --accent: #60cdff; --accent-hover: #75d4ff; --on-accent: #000;
+  --card: rgba(255, 255, 255, 0.045); --card-solid: #2b2b2b; --stroke: rgba(255, 255, 255, 0.08); --stroke-strong: rgba(255, 255, 255, 0.14);
+  --code-bg: #141414; --mica: #202020; --layer: #272727; --row-hover: rgba(255, 255, 255, 0.05);
+  --h0: #393420; --h1: #423920; --h2: #4d3f1c; --h3: #604c16; --h4: #7c5212; --h5: #984416;
+  --shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text);
+  background:
+    radial-gradient(1100px 600px at 85% -10%, var(--bg-glow-1), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, var(--bg-glow-2), transparent 60%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre, kbd { font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 28px; } }
+
+/* Header */
+.top { position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(160%) blur(18px); -webkit-backdrop-filter: saturate(160%) blur(18px); background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid var(--stroke); }
+.top .wrap { display: flex; align-items: center; gap: 24px; height: 56px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text); font-size: 15px; }
+.brand img { width: 26px; height: 26px; }
+.brand:hover { text-decoration: none; }
+.top nav { margin-left: auto; display: flex; gap: 22px; font-size: 14px; }
+.top nav a { color: var(--text-2); }
+.top nav a:hover { color: var(--text); text-decoration: none; }
+@media (max-width: 560px) { .top nav a.optional { display: none; } }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 20px; border-radius: 6px; font-size: 15px; font-weight: 600; border: 1px solid transparent; cursor: pointer; transition: background .15s, transform .15s; }
+.btn:hover { text-decoration: none; }
+.btn:active { transform: translateY(1px); }
+.btn-accent { background: var(--accent); color: var(--on-accent); }
+.btn-accent:hover { background: var(--accent-hover); }
+.btn-standard { background: var(--card); color: var(--text); border-color: var(--stroke-strong); }
+.btn-standard:hover { background: var(--row-hover); }
+.btn svg { width: 18px; height: 18px; }
+
+/* Hero */
+.hero { padding: 64px 0 32px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 44px; justify-items: center; text-align: center; }
+@media (min-width: 1000px) { .hero { padding: 84px 0 40px; } }
+.hero-copy { max-width: min(760px, 100%); display: flex; flex-direction: column; align-items: center; }
+.hero .mock-scroll { width: 100%; max-width: 1000px; text-align: left; }
+.eyebrow { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-2); background: var(--card); border: 1px solid var(--stroke); border-radius: 99px; padding: 4px 12px; }
+.eyebrow b { color: var(--accent); font-weight: 600; }
+h1 { font-family: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; font-size: clamp(36px, 5.2vw, 56px); line-height: 1.08; letter-spacing: -0.02em; margin: 18px 0 16px; font-weight: 650; }
+.lede { font-size: 18px; color: var(--text-2); max-width: 600px; margin: 0 0 28px; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+.release-meta { margin-top: 14px; font-size: 13px; color: var(--text-3); min-height: 20px; }
+
+/* Mock window */
+.mock-scroll { overflow-x: auto; margin: 0 -16px; padding: 4px 16px 24px; }
+.mock { min-width: 680px; border-radius: 12px; overflow: hidden; background: var(--mica); border: 1px solid var(--stroke-strong); box-shadow: var(--shadow); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; font-size: 12px; color: var(--text); user-select: none; }
+.mock-title { display: grid; grid-template-columns: 1fr minmax(180px, 300px) 1fr; align-items: center; height: 44px; padding: 0 14px; }
+.lights { display: flex; gap: 8px; align-items: center; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.lights i:nth-child(1) { background: #ff5f57; } .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.lights span { display: flex; align-items: center; gap: 8px; margin-left: 14px; font-size: 12px; white-space: nowrap; }
+.lights img { width: 15px; height: 15px; }
+.mock-search { height: 28px; border-radius: 5px; background: var(--layer); border: 1px solid var(--stroke); border-bottom-color: var(--text-3); display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--text-3); font-size: 11.5px; white-space: nowrap; overflow: hidden; }
+.mock-body { display: flex; }
+.rail { width: 46px; padding: 4px 5px; display: flex; flex-direction: column; gap: 3px; }
+.rail span { height: 32px; border-radius: 5px; display: grid; place-items: center; color: var(--text); position: relative; }
+.rail span.on { background: var(--row-hover); }
+.rail span.on::before { content: ""; position: absolute; left: 0; top: 9px; width: 3px; height: 14px; border-radius: 3px; background: var(--accent); }
+.rail svg { width: 16px; height: 16px; }
+.layer { flex: 1; background: var(--layer); border-top-left-radius: 8px; border: 1px solid var(--stroke); border-right: 0; border-bottom: 0; min-width: 0; }
+.layer-head { display: flex; align-items: center; height: 46px; padding: 0 14px 0 18px; gap: 14px; }
+.layer-head strong { font-size: 14px; margin-right: auto; }
+.layer-head em { font-style: normal; color: var(--text-2); font-size: 11.5px; display: inline-flex; gap: 6px; align-items: center; }
+.layer-head em.dim { color: var(--text-3); }
+table.proc { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.proc th { font-weight: 400; color: var(--text-2); font-size: 11px; text-align: left; padding: 4px 9px 5px; vertical-align: bottom; border-bottom: 1px solid var(--stroke); white-space: nowrap; }
+.proc th b { display: block; font-weight: 400; font-size: 13.5px; color: var(--text); }
+.proc th.num, .proc td.num { text-align: right; }
+.proc td { padding: 0 9px; height: 25px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.proc tr.section td { height: 32px; padding-top: 8px; font-weight: 600; font-size: 12.5px; }
+.proc tr.row:hover td { box-shadow: inset 0 0 0 999px var(--row-hover); }
+.proc .name { display: flex; align-items: center; gap: 7px; }
+.proc .chev { width: 12px; color: var(--text-3); font-size: 9px; text-align: center; }
+.proc .ico { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.proc .count { color: var(--text-3); }
+.proc .leaf { color: #3c9a3c; }
+.h0 { background: var(--h0); } .h1 { background: var(--h1); } .h2 { background: var(--h2); } .h3 { background: var(--h3); } .h4 { background: var(--h4); } .h5 { background: var(--h5); }
+@media (max-width: 560px) { .mock { min-width: 520px; } .rail, .col-status { display: none; } }
+
+/* Sections */
+section { padding: 56px 0; }
+.section-title { font-size: clamp(26px, 3.2vw, 34px); letter-spacing: -0.015em; margin: 0 0 10px; font-weight: 650; }
+.section-lede { color: var(--text-2); margin: 0 0 32px; max-width: 640px; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
+.card { background: var(--card); border: 1px solid var(--stroke); border-radius: var(--radius); padding: 20px; }
+.card h3 { font-size: 16px; margin: 12px 0 6px; font-weight: 600; }
+.card p { margin: 0; color: var(--text-2); font-size: 14.5px; }
+.card .glyph { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.card .glyph svg { width: 20px; height: 20px; }
+
+.extras { display: grid; gap: 14px; margin-top: 14px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+.extras .card { display: flex; gap: 14px; align-items: flex-start; }
+.extras .card h3 { margin-top: 0; }
+kbd { display: inline-block; min-width: 26px; text-align: center; padding: 1px 7px; border-radius: 5px; border: 1px solid var(--stroke-strong); border-bottom-width: 2px; background: var(--card-solid); font-size: 13px; color: var(--text); }
+
+.shots { display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .shots { grid-template-columns: 1fr 1fr; } .shots figure:first-child { grid-column: 1 / -1; } }
+.shots figure { margin: 0; }
+.shots img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--stroke-strong); box-shadow: var(--shadow); background: var(--mica); }
+.shots figcaption { color: var(--text-3); font-size: 13px; margin-top: 10px; }
+
+/* Install */
+.install { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+@media (min-width: 900px) { .install { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); } }
+.install .card { padding: 26px; min-width: 0; }
+.install h3 { font-size: 18px; margin: 0 0 6px; }
+.tag { display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 99px; padding: 1px 9px; margin-left: 8px; vertical-align: 2px; }
+.cmd { position: relative; margin: 18px 0 14px; background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 16px 92px 16px 16px; font-size: 13.5px; overflow-x: auto; white-space: nowrap; }
+.cmd .prompt { color: #7f7f7f; user-select: none; }
+.copy { position: absolute; top: 9px; right: 9px; height: 30px; padding: 0 12px; border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.08); color: #fff; font: inherit; font-size: 12.5px; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.copy:hover { background: rgba(255, 255, 255, 0.16); }
+.muted { color: var(--text-2); font-size: 14.5px; margin: 0; }
+ol.steps { margin: 16px 0 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 14px; }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 12px; color: var(--text-2); font-size: 14.5px; }
+ol.steps li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 13px; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+ol.steps strong { color: var(--text); font-weight: 600; }
+ol.steps code { font-size: 12.5px; background: var(--row-hover); padding: 1px 5px; border-radius: 4px; color: var(--text); word-break: break-all; }
+
+.faq { display: grid; gap: 10px; }
+.faq details { background: var(--card); border: 1px solid var(--stroke); border-radius: var(--radius); padding: 0 20px; }
+.faq summary { cursor: pointer; list-style: none; padding: 16px 0; font-weight: 600; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--text-3); font-weight: 400; font-size: 20px; line-height: 1; }
+.faq details[open] summary::after { content: "–"; }
+.faq details p { margin: 0 0 16px; color: var(--text-2); font-size: 14.5px; }
+
+footer { border-top: 1px solid var(--stroke); padding: 30px 0 44px; color: var(--text-3); font-size: 13px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 28px; justify-content: space-between; }
+footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
+footer a { color: var(--text-2); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/><path d="M12 8v4.2l2.8 1.8"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l-3.5-3.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><path d="M12 5.5v1.3M5.5 12h1.3M17.2 12h1.3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="16.5" cy="9" r="2.6"/><path d="M15.5 14.2c2.5-.3 4.6 1.3 5 4.3"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.8" cy="6.5" r=".9" fill="currentColor"/><circle cx="4.8" cy="12" r=".9" fill="currentColor"/><circle cx="4.8" cy="17.5" r=".9" fill="currentColor"/></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M5 8h3.5a2 2 0 1 1 4 0H16v3.5a2 2 0 1 1 0 4V19H12.5a2 2 0 1 0-4 0H5v-3.5a2 2 0 1 0 0-4z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.3M12 18.2v2.3M3.5 12h2.3M18.2 12h2.3M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14z"/><path d="M5 19l7-7"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 10h1M11 10h1M15 10h2M7 14h10" stroke-linecap="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3L19.5 9"/><path d="M19.5 4.5V9H15"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="assets/icon-64.png" alt="" width="26" height="26">Task Manager for macOS</a>
+    <nav>
+      <a class="optional" href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a class="optional" href="#faq">FAQ</a>
+      <a href="https://github.com/Mr-Who-Root/macos-task-manager">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="hero-copy">
+      <span class="eyebrow"><b>Free</b> · Native SwiftUI · Apple silicon &amp; Intel</span>
+      <h1>The Windows 11 Task Manager, rebuilt for your Mac.</h1>
+      <p class="lede">Heat-mapped processes, live performance graphs, startup apps, services and more, in a native app that keeps itself up to date.</p>
+      <div class="cta">
+        <a class="btn btn-accent" id="download" href="https://github.com/Mr-Who-Root/macos-task-manager/releases/latest/download/TaskManager.zip">
+          <svg><use href="#i-download"/></svg>Download for macOS
+        </a>
+        <a class="btn btn-standard" href="#install">Install with Terminal</a>
+      </div>
+      <div class="release-meta" id="release-meta">Requires macOS 15 or later.</div>
+    </div>
+
+    <div class="mock-scroll" aria-label="Preview of the Processes page">
+      <div class="mock" role="img" aria-label="Task Manager showing apps and background processes with heat-mapped CPU and memory columns">
+        <div class="mock-title">
+          <div class="lights"><i></i><i></i><i></i><span><img src="assets/icon-64.png" alt="">Task Manager</span></div>
+          <div class="mock-search"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Type a name, publisher, or PID to search</div>
+          <div></div>
+        </div>
+        <div class="mock-body">
+          <div class="rail">
+            <span class="on"><svg><use href="#i-grid"/></svg></span>
+            <span><svg><use href="#i-pulse"/></svg></span>
+            <span><svg><use href="#i-history"/></svg></span>
+            <span><svg><use href="#i-gauge"/></svg></span>
+            <span><svg><use href="#i-users"/></svg></span>
+            <span><svg><use href="#i-list"/></svg></span>
+            <span><svg><use href="#i-puzzle"/></svg></span>
+          </div>
+          <div class="layer">
+            <div class="layer-head">
+              <strong>Processes</strong>
+              <em>Run new task</em><em class="dim">End task</em><em class="dim">Efficiency mode</em><em>View</em>
+            </div>
+            <table class="proc">
+              <colgroup><col><col class="col-status" style="width:96px"><col style="width:64px"><col style="width:92px"><col style="width:76px"><col style="width:78px"></colgroup>
+              <thead><tr>
+                <th>Name</th><th class="col-status">Status</th>
+                <th class="num" id="t-cpu"><b>23%</b>CPU</th>
+                <th class="num" id="t-mem"><b>61%</b>Memory</th>
+                <th class="num"><b>2%</b>Disk</th>
+                <th class="num"><b>0%</b>Network</th>
+              </tr></thead>
+              <tbody id="proc-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <h2 class="section-title">Every page you know from Windows</h2>
+      <p class="section-lede">Eight pages, the same layout and the same shortcuts, reading real data from macOS.</p>
+      <div class="grid">
+        <div class="card"><div class="glyph"><svg><use href="#i-grid"/></svg></div><h3>Processes</h3><p>Apps, background and macOS processes, each app grouped with its helpers. Heat-mapped CPU, memory, disk and network, plus the columns you choose.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-pulse"/></svg></div><h3>Performance</h3><p>Live 60-second graphs for CPU (overall or per core), memory, every disk, each network adapter and the GPU.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-history"/></svg></div><h3>App history</h3><p>CPU time, network and disk use for each app, kept between launches.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-gauge"/></svg></div><h3>Startup apps</h3><p>Login items, launch agents and daemons with their publisher. Enable or disable them in one click.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-users"/></svg></div><h3>Users</h3><p>What each account on your Mac is using, expandable to its apps.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-list"/></svg></div><h3>Details</h3><p>Every process with PID, user, CPU time, threads, architecture and priority, including Rosetta apps.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-puzzle"/></svg></div><h3>Services</h3><p>launchd services in the user and system domains. Start, stop or restart them.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-gear"/></svg></div><h3>Settings</h3><p>Update speed, theme, always on top, a CPU meter in the menu bar and online updates.</p></div>
+      </div>
+      <div class="extras">
+        <div class="card"><div class="glyph"><svg><use href="#i-key"/></svg></div><div><h3>Press <kbd>⌃</kbd> <kbd>⇧</kbd> <kbd>⎋</kbd> anywhere</h3><p>The same shortcut as Ctrl+Shift+Esc brings Task Manager to the front from any app.</p></div></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-leaf"/></svg></div><div><h3>Efficiency mode and End task</h3><p>Lower a process's priority, suspend it, end it or its whole tree. Run new task even understands <code>notepad</code> and <code>calc</code>.</p></div></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-refresh"/></svg></div><div><h3>Updates itself</h3><p>Checks GitHub once a day. Install a new version from Settings and it restarts on the new build.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screenshots">
+    <div class="wrap">
+      <h2 class="section-title">Real data, Windows 11 style</h2>
+      <p class="section-lede">Light and dark mode follow your Mac, or pick one in Settings.</p>
+      <div class="shots">
+        <figure><img src="assets/screen-cpu.png" alt="Performance page showing a graph for each logical processor" loading="lazy" width="1600" height="1066"><figcaption>Performance › CPU, one graph per logical processor</figcaption></figure>
+        <figure><img src="assets/screen-memory.png" alt="Performance page showing memory usage and composition" loading="lazy" width="1600" height="1066"><figcaption>Memory usage and composition</figcaption></figure>
+        <figure><img src="assets/screen-disk.png" alt="Performance page showing disk active time and transfer rate" loading="lazy" width="1600" height="1066"><figcaption>Disk active time and transfer rate</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2 class="section-title">Install</h2>
+      <p class="section-lede">Task Manager is free and runs on macOS 15 Sequoia or later, on Apple silicon and Intel Macs.</p>
+      <div class="install">
+        <div class="card">
+          <h3>One command <span class="tag">Recommended</span></h3>
+          <p class="muted">Paste this into Terminal. It downloads the latest release, checks its SHA-256 checksum, installs it in Applications and opens it.</p>
+          <div class="cmd"><span class="prompt">$ </span><code id="install-cmd">curl -fsSL https://mr-who-root.github.io/macos-task-manager/install.sh | bash</code><button class="copy" data-copy="install-cmd" type="button">Copy</button></div>
+          <p class="muted">Want to read it first? <a href="install.sh">View install.sh</a>.</p>
+        </div>
+        <div class="card">
+          <h3>Manual download</h3>
+          <ol class="steps">
+            <li><span><strong>Download</strong> <a id="download-2" href="https://github.com/Mr-Who-Root/macos-task-manager/releases/latest/download/TaskManager.zip">TaskManager.zip</a> and double-click it to unzip.</span></li>
+            <li><span><strong>Drag Task Manager</strong> into your Applications folder.</span></li>
+            <li><span><strong>Open it.</strong> The app isn't notarized by Apple, so the first time macOS blocks it. Go to System Settings › Privacy &amp; Security and click <strong>Open Anyway</strong>. Or run <code>xattr -dr com.apple.quarantine "/Applications/Task Manager.app"</code>.</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <h2 class="section-title">Questions</h2>
+      <div class="faq">
+        <details><summary>How do updates work?</summary><p>Once a day Task Manager asks GitHub for the latest release. When there's a new version you'll see a dot on Settings. Choose Download and install: the app checks the download's checksum and signature, replaces itself and restarts. You can also check by hand or turn automatic checks off in Settings › Updates.</p></details>
+        <details><summary>Why does it sometimes ask for my password?</summary><p>macOS hides other users' processes, such as those owned by root. Task Manager can show them, but ending one, changing its priority or putting it in efficiency mode needs an administrator. macOS shows its own password prompt; Task Manager never sees your password.</p></details>
+        <details><summary>Why does Startup apps want to control System Events?</summary><p>Login items are read through System Events, so macOS asks once for Automation permission. Launch agents and daemons are listed without it.</p></details>
+        <details><summary>Is there a GPU column like on Windows?</summary><p>No. macOS doesn't report GPU use per process, so GPU usage appears on the Performance page only. Apple silicon also doesn't expose the current CPU frequency, so Task Manager shows each core type's maximum speed.</p></details>
+        <details><summary>How do I uninstall it?</summary><p>Quit Task Manager, drag it from Applications to the Trash and, if you like, delete <code>~/Library/Application Support/TaskManager</code>, which holds your app history.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Task Manager for macOS. Not affiliated with Microsoft or Apple. Windows is a trademark of Microsoft Corporation; macOS is a trademark of Apple Inc.</span>
+    <nav>
+      <a href="https://github.com/Mr-Who-Root/macos-task-manager">Source</a>
+      <a href="https://github.com/Mr-Who-Root/macos-task-manager/releases">Releases</a>
+      <a href="https://github.com/Mr-Who-Root/macos-task-manager/issues">Report an issue</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Live-looking sample data for the Processes preview.
+  var rows = [
+    { section: "Apps", count: 7 },
+    { name: "Safari", n: 8, color: "#1e8cf0", cpu: 3.2, mem: 1284.6, disk: 0.1, net: 0.4 },
+    { name: "Xcode", n: 5, color: "#2d7ff9", cpu: 18.4, mem: 3912.0, disk: 2.3, net: 0 },
+    { name: "Music", color: "#fa3a55", cpu: 0.8, mem: 212.4, disk: 0, net: 0.2 },
+    { name: "Mail", n: 3, color: "#3f8cf7", cpu: 0.2, mem: 318.9, disk: 0, net: 0, leaf: true },
+    { name: "Finder", color: "#38a3f5", cpu: 0.1, mem: 146.2, disk: 0, net: 0 },
+    { name: "Terminal", n: 4, color: "#3a3a3a", cpu: 1.1, mem: 96.5, disk: 0, net: 0 },
+    { name: "Task Manager", color: "#1a8ad4", cpu: 0.3, mem: 52.1, disk: 0, net: 0 },
+    { section: "Background processes", count: 3 },
+    { name: "Spotlight", color: "#8c8c8c", cpu: 2.4, mem: 88.0, disk: 1.8, net: 0 },
+    { name: "Photos Agent", color: "#f5a524", cpu: 0.6, mem: 64.3, disk: 0.2, net: 0 },
+    { name: "iCloud Drive", n: 2, color: "#5ab0f2", cpu: 0.1, mem: 31.7, disk: 0, net: 0.1 },
+    { section: "macOS processes", count: 412 },
+    { name: "WindowServer", color: "#6b6b6b", cpu: 4.1, mem: 142.7, disk: 0, net: 0 },
+    { name: "kernel_task", color: "#6b6b6b", cpu: 2.0, mem: 18.4, disk: 0.1, net: 0 }
+  ];
+  var body = document.getElementById("proc-body");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Same scales and colour steps as the app's heat map.
+  function heat(f) {
+    f = Math.max(0, Math.min(1, f));
+    return f < 0.03 ? "h0" : f < 0.1 ? "h1" : f < 0.22 ? "h2" : f < 0.45 ? "h3" : f < 0.75 ? "h4" : "h5";
+  }
+  function pct(v) { return v < 0.05 ? "0%" : v.toFixed(1) + "%"; }
+  function mb(v) { return v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " MB"; }
+  function rate(v, unit) { return v < 0.05 ? "0 " + unit : v.toFixed(1) + " " + unit; }
+
+  function render() {
+    var html = "";
+    rows.forEach(function (r) {
+      if (r.section) {
+        html += '<tr class="section"><td colspan="6">' + r.section + " (" + r.count + ")</td></tr>";
+        return;
+      }
+      html += '<tr class="row"><td><div class="name"><span class="chev">' + (r.n ? "›" : "") + '</span>' +
+        '<span class="ico" style="background:' + r.color + '"></span>' + r.name +
+        (r.n ? ' <span class="count">(' + r.n + ")</span>" : "") + "</div></td>" +
+        '<td class="col-status">' + (r.leaf ? '<span class="leaf">● Efficiency mode</span>' : "") + "</td>" +
+        '<td class="num ' + heat(r.cpu / 35) + '">' + pct(r.cpu) + "</td>" +
+        '<td class="num ' + heat(r.mem / 4915) + '">' + mb(r.mem) + "</td>" +
+        '<td class="num ' + heat(r.disk / 20) + '">' + rate(r.disk, "MB/s") + "</td>" +
+        '<td class="num ' + heat(r.net / 25) + '">' + rate(r.net, "Mbps") + "</td></tr>";
+    });
+    body.innerHTML = html;
+    var total = rows.reduce(function (s, r) { return s + (r.cpu || 0); }, 0);
+    document.querySelector("#t-cpu b").textContent = Math.round(total) + "%";
+  }
+
+  function jitter() {
+    rows.forEach(function (r) {
+      if (r.section) return;
+      var swing = r.cpu > 5 ? 3 : 0.6;
+      r.cpu = Math.max(0, Math.min(60, r.cpu + (Math.random() - 0.5) * swing));
+      r.mem = Math.max(10, r.mem + (Math.random() - 0.5) * r.mem * 0.01);
+      if (r.disk > 0 || Math.random() < 0.05) r.disk = Math.max(0, r.disk + (Math.random() - 0.55) * 1.2);
+    });
+    render();
+  }
+
+  render();
+  if (!reduce) setInterval(jitter, 1200);
+
+  // Show the latest release from GitHub; the static link above works without it.
+  fetch("https://api.github.com/repos/Mr-Who-Root/macos-task-manager/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (release) {
+      if (!release) return;
+      var asset = (release.assets || []).find(function (a) { return a.name === "TaskManager.zip"; });
+      var version = (release.tag_name || "").replace(/^v/, "");
+      var date = release.published_at ? new Date(release.published_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
+      var size = asset ? " · " + (asset.size / 1048576).toFixed(1) + " MB" : "";
+      document.getElementById("release-meta").innerHTML =
+        'Version ' + version + (date ? " · " + date : "") + size + ' · macOS 15 or later · <a href="' + release.html_url + '">Release notes</a>';
+      if (asset) {
+        document.getElementById("download").href = asset.browser_download_url;
+        document.getElementById("download-2").href = asset.browser_download_url;
+      }
+    })
+    .catch(function () {});
+
+  document.querySelectorAll(".copy").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var text = document.getElementById(button.dataset.copy).textContent;
+      var done = function () { button.textContent = "Copied"; setTimeout(function () { button.textContent = "Copy"; }, 1600); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+  });
+})();
+</script>
+</body>
+</html>
