@@ -112,19 +112,60 @@ enum ProcessActions {
         }
     }
 
+    /// Turns efficiency mode on or off, asking first before turning it on (like Windows).
+    static func requestEfficiency(_ target: RowTarget, enabled: Bool) {
+        guard enabled, AppSettings.shared.confirmEfficiencyMode else {
+            setEfficiency(target, enabled: enabled)
+            return
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Turn on Efficiency mode for “\(target.name)”?"
+        alert.informativeText = """
+        Efficiency mode lowers its CPU priority, moves it to the efficiency cores and throttles its disk and network use to save power.
+
+        Apps you're actively using, such as web browsers, video calls, games and music, can stop feeling smooth. It works best for background work like syncing, indexing or long builds.
+
+        To turn it off, select it and click Efficiency mode again, or quit and reopen the app. A green leaf in the Status column shows what's in efficiency mode.
+        """
+        alert.addButton(withTitle: "Turn on Efficiency mode")
+        alert.addButton(withTitle: "Cancel")
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Don't ask again"
+        let handle: (NSApplication.ModalResponse) -> Void = { response in
+            if alert.suppressionButton?.state == .on && response == .alertFirstButtonReturn {
+                AppSettings.shared.confirmEfficiencyMode = false
+            }
+            if response == .alertFirstButtonReturn { setEfficiency(target, enabled: true) }
+        }
+        if let window = AppState.shared.window, window.isVisible {
+            alert.beginSheetModal(for: window, completionHandler: handle)
+        } else {
+            handle(alert.runModal())
+        }
+    }
+
     /// Efficiency mode = Darwin background priority (lower CPU and I/O priority), like EcoQoS on Windows.
     static func setEfficiency(_ target: RowTarget, enabled: Bool) {
         var denied: [Int32] = []
-        for pid in target.pids where setpriority(PRIO_DARWIN_PROCESS, id_t(pid), enabled ? PRIO_DARWIN_BG : 0) != 0 {
-            if errno == EPERM || errno == EACCES { denied.append(pid) }
+        var changed: [Int32] = []
+        for pid in target.pids {
+            if setpriority(PRIO_DARWIN_PROCESS, id_t(pid), enabled ? PRIO_DARWIN_BG : 0) == 0 {
+                changed.append(pid)
+            } else if errno == EPERM || errno == EACCES {
+                denied.append(pid)
+            }
         }
+        EfficiencyStore.shared.setEnabled(enabled, pids: changed)
         if !denied.isEmpty {
             AppState.shared.alert = AppAlert(
                 title: "Efficiency mode needs administrator rights",
                 message: "“\(target.name)” is owned by another user.",
                 action: .init(title: "Continue as administrator") {
                     let flag = enabled ? "-b" : "-B"
-                    runAsAdmin(denied.map { "/usr/sbin/taskpolicy \(flag) -p \($0)" }.joined(separator: "; "))
+                    runAsAdmin(denied.map { "/usr/sbin/taskpolicy \(flag) -p \($0)" }.joined(separator: "; ")) {
+                        EfficiencyStore.shared.setEnabled(enabled, pids: denied)
+                    }
                 }
             )
         }
@@ -174,11 +215,13 @@ enum ProcessActions {
         pids.filter { kill($0, signal) != 0 && errno == EPERM }
     }
 
-    private static func runAsAdmin(_ command: String) {
+    private static func runAsAdmin(_ command: String, onSuccess: (@MainActor () -> Void)? = nil) {
         Task.detached {
             let result = Shell.runAsAdmin(command)
             await MainActor.run {
-                if !result.succeeded && !Shell.wasCancelled(result) {
+                if result.succeeded {
+                    onSuccess?()
+                } else if !Shell.wasCancelled(result) {
                     AppState.shared.alert = AppAlert(title: "The operation couldn't be completed", message: result.error)
                 }
                 Monitor.shared.refreshSoon()

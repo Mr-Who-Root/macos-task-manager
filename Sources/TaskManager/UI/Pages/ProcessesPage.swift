@@ -7,21 +7,28 @@ struct ProcessesPage: View {
     @State private var expanded: Set<String> = []
     @State private var selection: String?
     @State private var sort = TableSort()
+    @State private var onlyEfficient = false
 
     var body: some View {
+        let efficientCount = monitor.nodes.filter { $0.efficiency != .off }.count
         let rows = buildRows()
         let target = rows.first { $0.id == selection }?.target
         VStack(spacing: 0) {
             PageHeader(title: "Processes") {
+                if efficientCount > 0 || onlyEfficient {
+                    EfficiencyBadge(count: efficientCount, isFiltering: onlyEfficient) { onlyEfficient.toggle() }
+                        .padding(.trailing, 6)
+                }
                 CommandButton(title: "Run new task", systemImage: "macwindow.badge.plus") { state.showRunTask = true }
                 CommandSeparator()
                 EndTaskCommand(target: target)
                 CommandButton(title: "Efficiency mode", systemImage: target?.efficiency == true ? "leaf.fill" : "leaf",
                               isDisabled: target == nil || target?.ownedByUser == false, isOn: target?.efficiency == true) {
-                    if let target { ProcessActions.setEfficiency(target, enabled: !target.efficiency) }
+                    if let target { ProcessActions.requestEfficiency(target, enabled: !target.efficiency) }
                 }
                 CommandBarMenu(title: "View", systemImage: "rectangle.3.group") {
                     Toggle("Group by type", isOn: Binding(get: { settings.groupByType }, set: { settings.groupByType = $0 }))
+                    Toggle("Only processes in efficiency mode", isOn: $onlyEfficient)
                     Divider()
                     Button("Expand all") { expanded = Set(monitor.nodes.filter { $0.members.count > 1 }.map(\.id)) }
                     Button("Collapse all") { expanded = [] }
@@ -55,6 +62,14 @@ struct ProcessesPage: View {
             }
         }
         .onChange(of: state.endTaskRequest) { endSelected() }
+        .onChange(of: efficientCount) { _, count in
+            if count == 0 { onlyEfficient = false }
+        }
+        .onChange(of: monitor.tick) {
+            if let name = DebugHooks.selectName, selection == nil, let row = buildRows().first(where: { $0.title == name }) {
+                selection = row.id
+            }
+        }
     }
 
     private func toggle(_ id: String) {
@@ -70,7 +85,7 @@ struct ProcessesPage: View {
         _ = monitor.publisherRevision
         let query = state.searchText.trimmingCharacters(in: .whitespaces)
         var visible: [(node: ProcNode, members: [ProcessSample], forceExpand: Bool)] = []
-        for node in monitor.nodes {
+        for node in monitor.nodes where !onlyEfficient || node.efficiency != .off {
             if query.isEmpty || ProcessRows.matches(query, node: node) {
                 visible.append((node, node.members, false))
             } else {
@@ -106,5 +121,35 @@ struct ProcessesPage: View {
             emit(nodes)
         }
         return rows
+    }
+}
+
+/// "🍃 3 in efficiency mode": shows at a glance what's throttled, and filters to it.
+private struct EfficiencyBadge: View {
+    let count: Int
+    let isFiltering: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: "leaf.fill")
+                Text(count == 1 ? "1 in efficiency mode" : "\(count) in efficiency mode")
+                if isFiltering {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(Fluent.efficiency)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(Capsule().fill(Fluent.efficiency.opacity(isFiltering ? 0.22 : (hovering ? 0.16 : 0.1))))
+            .overlay(Capsule().strokeBorder(Fluent.efficiency.opacity(isFiltering ? 0.6 : 0.3)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(isFiltering ? "Show all processes" : "Show only the processes in efficiency mode")
     }
 }

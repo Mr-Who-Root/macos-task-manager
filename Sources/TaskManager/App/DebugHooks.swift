@@ -10,6 +10,8 @@ import SwiftUI
 enum DebugHooks {
     /// TM_DEBUG_HOVER=1 draws every table row as hovered, to test hit testing under the highlight.
     static let forceHover = ProcessInfo.processInfo.environment["TM_DEBUG_HOVER"] == "1"
+    /// TM_DEBUG_SELECT=name selects the first Processes row with that name.
+    static let selectName = ProcessInfo.processInfo.environment["TM_DEBUG_SELECT"]
     /// TM_DEBUG_SCROLL=bottom|center opens scrolling pages at that position.
     static let scrollAnchor: UnitPoint? = {
         switch ProcessInfo.processInfo.environment["TM_DEBUG_SCROLL"] {
@@ -80,8 +82,12 @@ enum DebugHooks {
 
     /// Posts a mouse move, down and up through the app's event queue, like a real click.
     private static func click(at point: CGPoint) async {
-        guard let window = AppState.shared.window, let content = window.contentView else { return }
-        let location = NSPoint(x: point.x, y: content.bounds.height - point.y)
+        guard let main = AppState.shared.window, let content = main.contentView else { return }
+        // Points are given in the main window; deliver to whichever app window is on top there (e.g. a sheet).
+        let screenPoint = main.convertPoint(toScreen: NSPoint(x: point.x, y: content.bounds.height - point.y))
+        let candidates = ([main.attachedSheet, NSApp.modalWindow, NSApp.keyWindow].compactMap { $0 }) + [main]
+        let window = candidates.first { $0.isVisible && $0.frame.contains(screenPoint) } ?? main
+        let location = window.convertPoint(fromScreen: screenPoint)
         func post(_ type: NSEvent.EventType) {
             eventNumber += 1
             if let event = NSEvent.mouseEvent(
@@ -105,6 +111,7 @@ import SwiftUI
 
 enum DebugHooks {
     static let forceHover = false
+    static let selectName: String? = nil
     static let scrollAnchor: UnitPoint? = nil
 }
 #endif

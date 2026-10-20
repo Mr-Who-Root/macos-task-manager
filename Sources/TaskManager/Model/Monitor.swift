@@ -27,8 +27,8 @@ final class SamplingEngine: @unchecked Sendable {
     private let processSampler = ProcessSampler()
     private let systemSampler = SystemSampler()
 
-    func sample(apps: [AppRef], currentUID: UInt32) -> SampleResult {
-        let processes = processSampler.sample()
+    func sample(apps: [AppRef], currentUID: UInt32, efficient: Set<String>) -> SampleResult {
+        let processes = processSampler.sample(efficient: efficient)
         let system = systemSampler.sample()
         let nodes = ProcessTreeBuilder.build(processes, apps: apps, currentUID: currentUID)
         return SampleResult(processes: processes, nodes: nodes, system: system)
@@ -125,8 +125,9 @@ final class Monitor {
         }
         let uid = getuid()
         let engine = self.engine
+        let efficient = EfficiencyStore.shared.keys
         queue.async {
-            let result = engine.sample(apps: apps, currentUID: uid)
+            let result = engine.sample(apps: apps, currentUID: uid, efficient: efficient)
             Task { @MainActor in self.apply(result) }
         }
     }
@@ -200,6 +201,7 @@ final class Monitor {
         sensorExtremes = extremes
 
         appHistory.record(result.nodes)
+        EfficiencyStore.shared.reconcile(with: result.processes)
         WidgetPublisher.shared.publish(self)
         MenuBarController.shared.refresh()
 

@@ -26,6 +26,9 @@ struct ProcessSample: Identifiable, Hashable, Sendable {
     var diskWriteRate: Double = 0
     var netRate: Double = 0          // bytes/s
     var threads: Int = 0
+    /// Base scheduling priority (4 = background/throttled, 31 = default); 0 when unknown.
+    var basePriority: Int32 = 0
+    /// True while a process the user put in efficiency mode is still at background priority.
     var efficiencyMode = false
 
     // Deltas since the previous sample, used for App history.
@@ -51,7 +54,7 @@ struct ProcessSample: Identifiable, Hashable, Sendable {
         switch state {
         case .stopped: return "Suspended"
         case .zombie: return "Zombie"
-        default: return "Running"
+        default: return efficiencyMode ? "Efficiency mode" : "Running"
         }
     }
 
@@ -105,7 +108,8 @@ final class ProcessSampler {
         cpuCount = Double(max(ProcessInfo.processInfo.activeProcessorCount, 1))
     }
 
-    func sample() -> [ProcessSample] {
+    /// `efficient` holds EfficiencyStore keys for processes the user put in efficiency mode.
+    func sample(efficient: Set<String> = []) -> [ProcessSample] {
         let now = DispatchTime.now().uptimeNanoseconds
         let elapsed = lastUptime == 0 ? 0 : Double(now &- lastUptime) / 1_000_000_000
         lastUptime = now
@@ -156,8 +160,8 @@ final class ProcessSampler {
                 var info = proc_taskinfo()
                 if proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, Int32(MemoryLayout<proc_taskinfo>.size)) > 0 {
                     sample.threads = Int(info.pti_threadnum)
+                    sample.basePriority = info.pti_priority
                 }
-                sample.efficiencyMode = getpriority(PRIO_DARWIN_PROCESS, id_t(pid)) == 1
             } else {
                 anyRestricted = true
             }
@@ -175,8 +179,17 @@ final class ProcessSampler {
                 if let stats = ps[pid] {
                     cpuNs[pid] = stats.cpuNs
                     samples[i].memory = stats.rss
+                    samples[i].basePriority = stats.priority
                 }
                 samples[i].threads = restrictedThreads[pid] ?? 0
+            }
+        }
+
+        if !efficient.isEmpty {
+            for i in samples.indices {
+                let key = EfficiencyStore.key(pid: samples[i].pid, startTime: samples[i].startTime)
+                let priority = samples[i].basePriority
+                samples[i].efficiencyMode = efficient.contains(key) && priority > 0 && priority <= EfficiencyStore.backgroundPriority
             }
         }
 
@@ -261,13 +274,15 @@ final class ProcessSampler {
         return []
     }
 
-    private static func psStatistics() -> [Int32: (rss: UInt64, cpuNs: UInt64)] {
-        let output = Shell.run("/bin/ps", ["-axo", "pid=,rss=,time="]).output
-        var result: [Int32: (rss: UInt64, cpuNs: UInt64)] = [:]
+    private static func psStatistics() -> [Int32: (rss: UInt64, cpuNs: UInt64, priority: Int32)] {
+        let output = Shell.run("/bin/ps", ["-axo", "pid=,rss=,time=,pri="]).output
+        var result: [Int32: (rss: UInt64, cpuNs: UInt64, priority: Int32)] = [:]
         for line in output.split(separator: "\n") {
             let parts = line.split(separator: " ", omittingEmptySubsequences: true)
             guard parts.count >= 3, let pid = Int32(parts[0]), let rss = UInt64(parts[1]) else { continue }
-            result[pid] = (rss * 1024, UInt64(parseCPUTime(parts[2]) * 1_000_000_000))
+            // "pri" looks like "31T" or "4"; keep the number.
+            let priority = parts.count >= 4 ? Int32(parts[3].prefix { $0.isNumber }) ?? 0 : 0
+            result[pid] = (rss * 1024, UInt64(parseCPUTime(parts[2]) * 1_000_000_000), priority)
         }
         return result
     }

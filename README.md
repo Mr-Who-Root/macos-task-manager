@@ -39,10 +39,15 @@ app and relaunches it.
 | **Services** | launchd services in the user and system domains, with start / stop / restart. |
 | **Settings** | Start page, update speed (High / Normal / Low / Paused), theme, always on top, menu-bar CPU meter, global shortcut. |
 
-Actions work the way they do on Windows: **End task** (`Delete` / `⌘⌫`), Force end task, **Efficiency mode**
-(Darwin background priority, shown with a leaf), Suspend / Resume, Set priority, End process tree, Open file
-location, Search online, Properties, and **Run new task** (`⌘N`), which also understands `notepad`, `calc`, `cmd`
-and similar Windows names.
+Actions work the way they do on Windows: **End task** (`Delete` / `⌘⌫`), Force end task, **Efficiency mode**,
+Suspend / Resume, Set priority, End process tree, Open file location, Search online, Properties, and **Run new
+task** (`⌘N`), which also understands `notepad`, `calc`, `cmd` and similar Windows names.
+
+**Efficiency mode** puts a process at macOS background priority: lowest CPU priority, efficiency cores, and
+throttled disk and network I/O. Task Manager asks before turning it on (Settings › Other options turns the question
+off), marks those processes with a green leaf and "Efficiency mode" in the Status column, and shows an
+"N in efficiency mode" badge on the Processes page that filters to them. Avoid it for apps you're actively using,
+such as browsers: they stop feeling smooth. Click Efficiency mode again, or quit and reopen the app, to undo it.
 
 **Control-Shift-Escape** brings Task Manager to the front from any app. Finder can't be ended, only
 **restarted**, the way Windows Explorer works in Windows Task Manager.

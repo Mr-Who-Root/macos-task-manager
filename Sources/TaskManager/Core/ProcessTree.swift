@@ -66,8 +66,13 @@ struct ProcNode: Identifiable, Sendable {
     var statusText: String {
         if isSuspended { return "Suspended" }
         switch efficiency {
-        case .on: return "Efficiency mode"
-        case .partial, .off: return members.count == 1 ? (main?.statusText ?? "") : ""
+        case .on:
+            let count = members.filter(\.efficiencyMode).count
+            return count == members.count || members.count == 1 ? "Efficiency mode" : "Efficiency mode (\(count) of \(members.count))"
+        case .partial:
+            return "Efficiency mode (\(members.filter(\.efficiencyMode).count) of \(members.count))"
+        case .off:
+            return members.count == 1 ? (main?.statusText ?? "") : ""
         }
     }
 

@@ -353,10 +353,11 @@ private struct HeatRowView: View {
                     .foregroundStyle(Fluent.efficiency)
                     .help(row.efficiency == .on ? "Efficiency mode" : "Some processes are in efficiency mode")
             }
-            Text(row.statusText).foregroundStyle(Fluent.textSecondary)
+            Text(row.statusText).foregroundStyle(Fluent.textSecondary).truncationMode(.tail)
         }
         .font(.system(size: 12))
         .padding(.horizontal, 9)
+        .help(row.statusText)
     }
 
     private func numeric(_ value: String) -> some View {
