@@ -73,6 +73,8 @@ final class Updater {
 
     /// Checks on launch and then every few hours, at most once a day.
     func startAutomaticChecks() {
+        // A bare `swift run` binary has no version, so it would always look out of date.
+        guard canInstallInPlace else { return }
         checkIfDue()
         timer?.invalidate()
         let timer = Timer(timeInterval: 6 * 3600, repeats: true) { [weak self] _ in

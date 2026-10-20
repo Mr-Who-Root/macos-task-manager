@@ -145,8 +145,12 @@ struct ProcessRowMenu: View {
             Divider()
         }
         if let target = row.target {
-            Button("End task") { ProcessActions.requestEndTask(target) }
-            Button("Force end task") { ProcessActions.requestEndTask(target, force: true) }
+            if target.isFinder {
+                Button("Restart") { ProcessActions.restartFinder() }
+            } else {
+                Button("End task") { ProcessActions.requestEndTask(target) }
+                Button("Force end task") { ProcessActions.requestEndTask(target, force: true) }
+            }
             Toggle("Efficiency mode", isOn: Binding(
                 get: { target.efficiency },
                 set: { ProcessActions.setEfficiency(target, enabled: $0) }

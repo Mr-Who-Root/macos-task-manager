@@ -167,7 +167,7 @@ table.proc { width: 100%; border-collapse: collapse; table-layout: fixed; }
 section { padding: 56px 0; }
 .section-title { font-size: clamp(26px, 3.2vw, 34px); letter-spacing: -0.015em; margin: 0 0 10px; font-weight: 650; }
 .section-lede { color: var(--text-2); margin: 0 0 32px; max-width: 640px; }
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); }
 .card { background: var(--card); border: 1px solid var(--stroke); border-radius: var(--radius); padding: 20px; }
 .card h3 { font-size: 16px; margin: 12px 0 6px; font-weight: 600; }
 .card p { margin: 0; color: var(--text-2); font-size: 14.5px; }
@@ -184,6 +184,15 @@ kbd { display: inline-block; min-width: 26px; text-align: center; padding: 1px 7
 .shots figure { margin: 0; }
 .shots img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--stroke-strong); box-shadow: var(--shadow); background: var(--mica); }
 .shots figcaption { color: var(--text-3); font-size: 13px; margin-top: 10px; }
+
+.new-grid { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 860px) { .new-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .new-grid .wide { grid-column: 1 / -1; } }
+.new-grid figure { margin: 0; }
+.new-grid img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--stroke-strong); box-shadow: var(--shadow); background: var(--mica); }
+.new-grid figcaption { color: var(--text-2); font-size: 14px; margin-top: 12px; }
+.new-grid figcaption strong { color: var(--text); }
+.menubar-note { display: flex; gap: 14px; align-items: flex-start; margin-top: 22px; }
+.menubar-note h3 { margin-top: 0; }
 
 /* Install */
 .install { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
@@ -232,6 +241,10 @@ footer a { color: var(--text-2); }
     <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></symbol>
     <symbol id="i-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14z"/><path d="M5 19l7-7"/></symbol>
     <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 10h1M11 10h1M15 10h2M7 14h10" stroke-linecap="round"/></symbol>
+    <symbol id="i-thermo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v7"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.9 1.4-1.9-.5-1.2.3-2.6 1.7-2.6H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.9-9-8.5-9z"/><circle cx="7.8" cy="11" r="1" fill="currentColor"/><circle cx="10.5" cy="7.5" r="1" fill="currentColor"/><circle cx="14.8" cy="7.8" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-menubar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 8.5h18"/><path d="M13.5 6.5h1.5M16.5 6.5h2" stroke-linecap="round"/></symbol>
+    <symbol id="i-widgets" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2"/><rect x="3.5" y="13" width="17" height="7.5" rx="2"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3L19.5 9"/><path d="M19.5 4.5V9H15"/></symbol>
   </defs>
 </svg>
@@ -241,6 +254,7 @@ footer a { color: var(--text-2); }
     <a class="brand" href="#"><img src="assets/icon-64.png" alt="" width="26" height="26">Task Manager for macOS</a>
     <nav>
       <a class="optional" href="#features">Features</a>
+      <a class="optional" href="#new">What's new</a>
       <a href="#install">Install</a>
       <a class="optional" href="#faq">FAQ</a>
       <a href="https://github.com/Mr-Who-Root/macos-task-manager">GitHub</a>
@@ -305,21 +319,25 @@ footer a { color: var(--text-2); }
   <section id="features">
     <div class="wrap">
       <h2 class="section-title">Every page you know from Windows</h2>
-      <p class="section-lede">Eight pages, the same layout and the same shortcuts, reading real data from macOS.</p>
+      <p class="section-lede">The same pages, layout and shortcuts, reading real data from macOS, plus a Temperatures page Windows never had.</p>
       <div class="grid">
         <div class="card"><div class="glyph"><svg><use href="#i-grid"/></svg></div><h3>Processes</h3><p>Apps, background and macOS processes, each app grouped with its helpers. Heat-mapped CPU, memory, disk and network, plus the columns you choose.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-pulse"/></svg></div><h3>Performance</h3><p>Live 60-second graphs for CPU (overall or per core), memory, every disk, each network adapter and the GPU.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-thermo"/></svg></div><h3>Temperatures</h3><p>CPU cores, GPU, SoC, memory, SSD and battery sensors with min, max and history, plus fan speeds and thermal pressure.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-history"/></svg></div><h3>App history</h3><p>CPU time, network and disk use for each app, kept between launches.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-gauge"/></svg></div><h3>Startup apps</h3><p>Login items, launch agents and daemons with their publisher. Enable or disable them in one click.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-users"/></svg></div><h3>Users</h3><p>What each account on your Mac is using, expandable to its apps.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-list"/></svg></div><h3>Details</h3><p>Every process with PID, user, CPU time, threads, architecture and priority, including Rosetta apps.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-puzzle"/></svg></div><h3>Services</h3><p>launchd services in the user and system domains. Start, stop or restart them.</p></div>
-        <div class="card"><div class="glyph"><svg><use href="#i-gear"/></svg></div><h3>Settings</h3><p>Update speed, theme, always on top, a CPU meter in the menu bar and online updates.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-gear"/></svg></div><h3>Settings</h3><p>Five designs, accent colours, update speed, always on top, menu bar items and online updates.</p></div>
       </div>
       <div class="extras">
         <div class="card"><div class="glyph"><svg><use href="#i-key"/></svg></div><div><h3>Press <kbd>⌃</kbd> <kbd>⇧</kbd> <kbd>⎋</kbd> anywhere</h3><p>The same shortcut as Ctrl+Shift+Esc brings Task Manager to the front from any app.</p></div></div>
         <div class="card"><div class="glyph"><svg><use href="#i-leaf"/></svg></div><div><h3>Efficiency mode and End task</h3><p>Lower a process's priority, suspend it, end it or its whole tree. Run new task even understands <code>notepad</code> and <code>calc</code>.</p></div></div>
         <div class="card"><div class="glyph"><svg><use href="#i-refresh"/></svg></div><div><h3>Updates itself</h3><p>Checks GitHub once a day. Install a new version from Settings and it restarts on the new build.</p></div></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-palette"/></svg></div><div><h3>Five designs</h3><p>Windows 11, Windows 10 with tabs, a native macOS sidebar, Midnight and a green-on-black Terminal look, with any accent colour.</p></div></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-menubar"/></svg></div><div><h3>Menu bar items</h3><p>CPU, memory, GPU, network, disk and temperature as values, graphs or meters. Click one for a live pop-over.</p></div></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-widgets"/></svg></div><div><h3>Widgets</h3><p>CPU, Memory, System, Top Apps, Temperatures, Network and Storage widgets for the desktop and Notification Center.</p></div></div>
       </div>
     </div>
   </section>
@@ -332,6 +350,22 @@ footer a { color: var(--text-2); }
         <figure><img src="assets/screen-cpu.png" alt="Performance page showing a graph for each logical processor" loading="lazy" width="1600" height="1066"><figcaption>Performance › CPU, one graph per logical processor</figcaption></figure>
         <figure><img src="assets/screen-memory.png" alt="Performance page showing memory usage and composition" loading="lazy" width="1600" height="1066"><figcaption>Memory usage and composition</figcaption></figure>
         <figure><img src="assets/screen-disk.png" alt="Performance page showing disk active time and transfer rate" loading="lazy" width="1600" height="1066"><figcaption>Disk active time and transfer rate</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="new">
+    <div class="wrap">
+      <h2 class="section-title">New in 1.1</h2>
+      <p class="section-lede">Pick a design, keep an eye on temperatures, and put Task Manager on your desktop and in the menu bar.</p>
+      <div class="new-grid">
+        <figure class="wide"><img src="assets/screen-designs.png" alt="Settings showing five design choices and accent colours" loading="lazy" width="1260" height="395"><figcaption><strong>Five designs.</strong> Windows 11, Windows 10 with tabs, a native macOS sidebar, Midnight and Terminal, each with your choice of accent colour.</figcaption></figure>
+        <figure><img src="assets/screen-temperatures.jpg" alt="Temperatures page in the Midnight design showing CPU, GPU, SSD and battery sensors" loading="lazy" width="1600" height="1066"><figcaption><strong>Temperatures.</strong> CPU cores, GPU, SoC, memory, SSD and battery sensors with history, plus fan speeds and thermal pressure.</figcaption></figure>
+        <figure><img src="assets/widgets.jpg" alt="CPU, System, Temperatures, Top Apps, Network and Storage widgets" loading="lazy" width="1400" height="728"><figcaption><strong>Widgets.</strong> CPU, Memory, System, Top Apps, Temperatures, Network and Storage, in the design you chose. Click one to open that page.</figcaption></figure>
+      </div>
+      <div class="card menubar-note">
+        <div class="glyph"><svg><use href="#i-menubar"/></svg></div>
+        <div><h3>Menu bar items</h3><p>Add CPU, memory, GPU, network, disk and temperature to the menu bar as values, mini graphs or meters. Click one for a live graph and the busiest apps.</p></div>
       </div>
     </div>
   </section>

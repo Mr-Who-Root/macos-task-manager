@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable {
-    case processes, performance, appHistory, startup, users, details, services, settings
+    case processes, performance, temperatures, appHistory, startup, users, details, services, settings
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .processes: return "Processes"
         case .performance: return "Performance"
+        case .temperatures: return "Temperatures"
         case .appHistory: return "App history"
         case .startup: return "Startup apps"
         case .users: return "Users"
@@ -24,6 +25,7 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .processes: return "square.grid.2x2"
         case .performance: return "waveform.path.ecg"
+        case .temperatures: return "thermometer.medium"
         case .appHistory: return "clock.arrow.circlepath"
         case .startup: return "gauge.with.dots.needle.33percent"
         case .users: return "person.2"

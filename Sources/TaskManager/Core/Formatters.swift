@@ -90,6 +90,14 @@ enum Fmt {
         return "S: \(bitRate(send)) R: \(bitRate(receive))"
     }
 
+    /// Short rate for the menu bar: "0K", "12K", "1.2M".
+    static func compactRate(_ bytesPerSecond: Double) -> String {
+        let v = max(bytesPerSecond, 0)
+        if v < 1_000_000 { return "\(Int((v / 1_024).rounded()))K" }
+        if v < 10_485_760 { return String(format: "%.1fM", v / 1_048_576) }
+        return "\(Int((v / 1_048_576).rounded()))M"
+    }
+
     static func linkSpeed(_ bitsPerSecond: UInt64) -> String {
         let v = Double(bitsPerSecond)
         if v <= 0 { return "Unknown" }
@@ -107,6 +115,15 @@ enum Fmt {
     static func cpuTime(_ seconds: Double) -> String {
         let t = max(Int(seconds), 0)
         return String(format: "%d:%02d:%02d", t / 3_600, (t % 3_600) / 60, t % 60)
+    }
+
+    static func temperature(_ celsius: Double, fahrenheit: Bool, decimals: Int = 0) -> String {
+        let value = fahrenheit ? celsius * 9 / 5 + 32 : celsius
+        return String(format: "%.\(decimals)f °%@", value, fahrenheit ? "F" : "C")
+    }
+
+    static func rpm(_ value: Double) -> String {
+        value < 1 ? "Off" : "\(Int(value.rounded())) RPM"
     }
 
     static func frequency(_ hertz: Double) -> String {

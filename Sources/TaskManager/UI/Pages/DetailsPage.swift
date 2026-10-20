@@ -23,9 +23,7 @@ struct DetailsPage: View {
             PageHeader(title: "Details") {
                 CommandButton(title: "Run new task", systemImage: "macwindow.badge.plus") { state.showRunTask = true }
                 CommandSeparator()
-                CommandButton(title: "End task", systemImage: "nosign", isDisabled: selected == nil) {
-                    if let selected { ProcessActions.requestEndTask(target(for: selected)) }
-                }
+                EndTaskCommand(target: selected.map(target(for:)))
                 CommandButton(title: "Efficiency mode", systemImage: selected?.efficiencyMode == true ? "leaf.fill" : "leaf",
                               isDisabled: selected == nil || selected?.restricted == true, isOn: selected?.efficiencyMode == true) {
                     if let selected { ProcessActions.setEfficiency(target(for: selected), enabled: !selected.efficiencyMode) }
@@ -38,6 +36,7 @@ struct DetailsPage: View {
                 }
                 .tableStyle(.inset(alternatesRowBackgrounds: false))
                 .scrollContentBackground(.hidden)
+                .foregroundStyle(Fluent.textPrimary)
                 .contextMenu(forSelectionType: Int32.self) { pids in
                     if let pid = pids.first, let process = monitor.process(pid) {
                         menu(for: process)
@@ -155,8 +154,12 @@ struct DetailsPage: View {
     @ViewBuilder
     private func menu(for process: ProcessSample) -> some View {
         let target = target(for: process)
-        Button("End task") { ProcessActions.requestEndTask(target) }
-        Button("End process tree") { ProcessActions.requestEndTask(treeTarget(for: process)) }
+        if target.isFinder {
+            Button("Restart") { ProcessActions.restartFinder() }
+        } else {
+            Button("End task") { ProcessActions.requestEndTask(target) }
+            Button("End process tree") { ProcessActions.requestEndTask(treeTarget(for: process)) }
+        }
         Toggle("Efficiency mode", isOn: Binding(
             get: { process.efficiencyMode },
             set: { ProcessActions.setEfficiency(target, enabled: $0) }

@@ -80,6 +80,7 @@ struct StartupAppsPage: View {
             }
             .tableStyle(.inset(alternatesRowBackgrounds: false))
             .scrollContentBackground(.hidden)
+            .foregroundStyle(Fluent.textPrimary)
             .contextMenu(forSelectionType: StartupItem.ID.self) { ids in
                 if let id = ids.first, let item = items.first(where: { $0.id == id }) {
                     Button(item.enabled ? "Disable" : "Enable") { setEnabled(!item.enabled, item) }

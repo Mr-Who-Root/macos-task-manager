@@ -31,6 +31,7 @@ app and relaunches it.
 | --- | --- |
 | **Processes** | Apps, background processes and macOS processes, grouped with their helper processes. Heat-mapped CPU / Memory / Disk / Network cells, header totals, sortable and resizable columns, optional Publisher / PID / Process name / User / Threads / Architecture columns (right-click the header). |
 | **Performance** | CPU (overall or per logical processor, optional kernel time), Memory (with composition bar), each Disk, each network adapter, and GPU, all with 60-sample graphs. |
+| **Temperatures** | CPU performance and efficiency cores, GPU, SoC, memory, SSD, battery, Wi-Fi, airflow and power-delivery sensors (average, hottest, min/max, history) plus fan speeds and thermal pressure. |
 | **App history** | CPU time, network and disk usage per app, recorded while Task Manager runs and saved between launches. |
 | **Startup apps** | Login items plus third-party launch agents and daemons, with publisher (from the code signature), status and enable/disable. |
 | **Users** | Per-account totals, expandable to that account's apps. |
@@ -43,7 +44,35 @@ Actions work the way they do on Windows: **End task** (`Delete` / `⌘⌫`), For
 location, Search online, Properties, and **Run new task** (`⌘N`), which also understands `notepad`, `calc`, `cmd`
 and similar Windows names.
 
-**Control-Shift-Escape** brings Task Manager to the front from any app.
+**Control-Shift-Escape** brings Task Manager to the front from any app. Finder can't be ended, only
+**restarted**, the way Windows Explorer works in Windows Task Manager.
+
+## Designs
+
+Settings › Design switches the whole look, with a preview of each:
+
+- **Windows 11**: Fluent, Mica and a navigation rail
+- **Windows 10**: flat, with tabs across the top
+- **macOS**: a source-list sidebar and the system accent colour
+- **Midnight**: deep blue glass with neon graphs (always dark)
+- **Terminal**: green phosphor on black, in a monospaced font (always dark)
+
+Pick an accent colour, or keep the design's own.
+
+## Menu bar
+
+Settings › Menu bar adds any of **CPU, Memory, GPU, Network, Disk and Temperature** to the menu bar, shown as
+icon and value, value only, a mini graph or a meter. Click one for a pop-over with a live graph, details and the
+busiest apps. Command-drag an item out of the menu bar to remove it. Task Manager keeps running in the menu bar
+while any item is shown.
+
+## Widgets
+
+Add them from the widget gallery (desktop or Notification Center): **CPU**, **Memory**, **System** (small,
+medium, large), **Top Apps**, **Temperatures**, **Network** and **Storage**. They follow the chosen design, and
+clicking one opens the matching page. While Task Manager runs it shares live figures with its widgets; when it
+isn't running, the widgets measure CPU, memory, disk and network themselves, and the process and temperature
+widgets ask you to open the app.
 
 ## Build from source
 
@@ -79,16 +108,22 @@ The website lives in `docs/` and is served by GitHub Pages from the `main` branc
 - The Startup apps page reads login items through System Events, so macOS asks once for Automation permission.
 - Per-process network usage comes from `nettop` and only counts open connections.
 - Apple silicon doesn't expose the current CPU frequency, so the Performance page shows each cluster's maximum.
+- Temperatures come from the SMC and the HID sensor hub, which macOS doesn't document; Task Manager only reads
+  them. Cores that are powered down don't report a temperature and show as Idle.
+- The widget extension is sandboxed. Its only file access is read-only access to
+  `~/Library/Application Support/TaskManager/`, where the app writes `widget-snapshot.json`.
 - macOS has no per-process GPU accounting, so there is no GPU column on the Processes page.
 
 ## Layout
 
 ```
 Sources/TaskManager/
-  App/        entry point, menu commands, app delegate
-  Core/       samplers (libproc, sysctl, IOKit, routing socket), grouping, launchd, actions, updater
-  Model/      Monitor (sampling + history), settings, UI state, app history store
-  UI/         window shell, Fluent components, heat table, graphs, pages, dialogs
+  App/        entry point, menu commands, app delegate, debug-only UI test hooks
+  Core/       samplers (libproc, sysctl, IOKit, SMC/HID sensors, routing socket), grouping, launchd, actions, updater
+  Model/      Monitor (sampling + history), settings, UI state, app history, widget publisher
+  UI/         window shell, designs and tokens, heat table, graphs, menu bar, pages, dialogs
+Sources/TaskManagerWidgets/   WidgetKit extension (packaged as Contents/PlugIns/TaskManagerWidgets.appex)
+Sources/TaskManagerShared/    the snapshot model shared by the app and its widgets
 scripts/      build-app.sh, release.sh, make-icon.swift
 docs/         website (GitHub Pages) and install.sh
 ```
