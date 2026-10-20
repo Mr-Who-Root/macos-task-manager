@@ -9,6 +9,10 @@ struct SettingsPage: View {
             PageHeader(title: "Settings") { EmptyView() }
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
+                    sectionTitle("Design").padding(.top, -16)
+                    DesignPicker()
+
+                    sectionTitle("General")
                     SettingCard(systemImage: "house", title: "Default start page", subtitle: "Choose the page Task Manager opens on") {
                         Picker("", selection: $settings.defaultPage) {
                             ForEach(Page.allCases) { Text($0.title).tag($0) }
@@ -23,25 +27,41 @@ struct SettingsPage: View {
                         .labelsHidden()
                         .frame(width: 190)
                     }
-                    SettingCard(systemImage: "paintbrush", title: "App theme", subtitle: "Select which app theme to display") {
+                    SettingCard(systemImage: "circle.lefthalf.filled", title: "App theme",
+                                subtitle: Fluent.design.isAlwaysDark ? "The \(Fluent.design.title) design is always dark" : "Light, dark, or follow macOS") {
                         Picker("", selection: $settings.theme) {
                             ForEach(AppTheme.allCases) { Text($0.title).tag($0) }
                         }
                         .labelsHidden()
                         .frame(width: 190)
+                        .disabled(Fluent.design.isAlwaysDark)
                     }
 
                     sectionTitle("Window management")
                     SettingCard(systemImage: "macwindow.on.rectangle", title: "Always on top", subtitle: "Keep Task Manager above other windows") {
                         Toggle("", isOn: $settings.alwaysOnTop).toggleStyle(.switch).labelsHidden().tint(Fluent.accent)
                     }
-                    SettingCard(systemImage: "menubar.rectangle", title: "Show CPU usage in the menu bar",
-                                subtitle: "Task Manager keeps running in the menu bar when its window is closed") {
-                        Toggle("", isOn: $settings.showMenuBarCPU).toggleStyle(.switch).labelsHidden().tint(Fluent.accent)
-                    }
                     SettingCard(systemImage: "keyboard", title: "Open with Control-Shift-Escape",
                                 subtitle: "The Windows shortcut brings Task Manager to the front from any app") {
                         Toggle("", isOn: $settings.globalHotKey).toggleStyle(.switch).labelsHidden().tint(Fluent.accent)
+                    }
+
+                    sectionTitle("Menu bar")
+                    MenuBarItemsCard()
+                    SettingCard(systemImage: "textformat.size", title: "Menu bar style", subtitle: "How each item looks in the menu bar") {
+                        Picker("", selection: $settings.menuBarStyle) {
+                            ForEach(MenuBarStyle.allCases) { Text($0.title).tag($0) }
+                        }
+                        .labelsHidden()
+                        .frame(width: 190)
+                    }
+                    SettingCard(systemImage: "thermometer.medium", title: "Temperature unit", subtitle: "Used on the Temperatures page, menu bar and widgets") {
+                        Picker("", selection: $settings.useFahrenheit) {
+                            Text("Celsius (°C)").tag(false)
+                            Text("Fahrenheit (°F)").tag(true)
+                        }
+                        .labelsHidden()
+                        .frame(width: 190)
                     }
 
                     sectionTitle("Other options")
@@ -68,6 +88,7 @@ struct SettingsPage: View {
                 .padding(.bottom, 24)
                 .frame(maxWidth: 920, alignment: .leading)
             }
+            .defaultScrollAnchor(DebugHooks.scrollAnchor)
         }
     }
 
@@ -197,5 +218,56 @@ private struct UpdatesSection: View {
             }
             .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+/// Chips that add or remove each menu bar item.
+private struct MenuBarItemsCard: View {
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 16) {
+                Image(systemName: "menubar.rectangle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Fluent.textPrimary)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show in the menu bar").font(.system(size: 13)).foregroundStyle(Fluent.textPrimary)
+                    Text("Click an item for a live graph and the busiest apps. Task Manager keeps running in the menu bar when its window is closed.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Fluent.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(MenuBarItem.allCases) { item in
+                    let on = settings.menuBarItems.contains(item)
+                    Button {
+                        settings.setMenuBarItem(item, shown: !on)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: on ? "checkmark" : item.symbol)
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(width: 14)
+                            Text(item.title).font(.system(size: 12.5))
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(on ? Fluent.textOnAccent : Fluent.textPrimary)
+                        .padding(.horizontal, 10)
+                        .frame(height: 30)
+                        .background(RoundedRectangle(cornerRadius: Fluent.controlRadius + 2, style: .continuous).fill(on ? Fluent.accent : Fluent.controlFill))
+                        .overlay(RoundedRectangle(cornerRadius: Fluent.controlRadius + 2, style: .continuous).strokeBorder(on ? .clear : Fluent.controlStroke))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+            .padding(.leading, 38)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: Fluent.cardRadius, style: .continuous).fill(Fluent.card))
+        .overlay(RoundedRectangle(cornerRadius: Fluent.cardRadius, style: .continuous).strokeBorder(Fluent.cardStroke))
     }
 }

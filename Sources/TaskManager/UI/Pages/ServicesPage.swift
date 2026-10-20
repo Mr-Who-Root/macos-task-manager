@@ -54,6 +54,7 @@ struct ServicesPage: View {
             }
             .tableStyle(.inset(alternatesRowBackgrounds: false))
             .scrollContentBackground(.hidden)
+            .foregroundStyle(Fluent.textPrimary)
             .contextMenu(forSelectionType: ServiceEntry.ID.self) { ids in
                 if let id = ids.first, let service = services.first(where: { $0.id == id }) {
                     Button("Start") { perform(.start, service) }.disabled(service.isRunning)

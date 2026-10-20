@@ -3,9 +3,11 @@ import SwiftUI
 struct GraphSeries {
     var values: [Double]
     var color: Color
-    var fillOpacity: Double = 0.12
+    /// nil uses the design's default fill.
+    var fillOpacity: Double? = nil
     var dashed = false
-    var lineWidth: CGFloat = 1.2
+    /// nil uses the design's default line width.
+    var lineWidth: CGFloat? = nil
 }
 
 /// A Windows Task Manager style graph: grid that scrolls with time, line + translucent fill.
@@ -20,6 +22,7 @@ struct PerfGraph: View {
     var capacity = History.capacity
 
     var body: some View {
+        let design = Fluent.design
         Canvas { context, size in
             let w = size.width, h = size.height
             if showGrid {
@@ -39,7 +42,7 @@ struct PerfGraph: View {
                     grid.addLine(to: CGPoint(x: x.rounded() + 0.5, y: h))
                     x -= step * CGFloat(samplesPerColumn)
                 }
-                context.stroke(grid, with: .color(tint.opacity(0.16)), lineWidth: 1)
+                context.stroke(grid, with: .color(tint.opacity(design == .terminal ? 0.22 : 0.16)), lineWidth: 1)
             }
 
             let scale = maxValue > 0 ? maxValue : 1
@@ -54,15 +57,27 @@ struct PerfGraph: View {
                 var line = Path()
                 line.move(to: point(0))
                 for i in 1..<count { line.addLine(to: point(i)) }
-                if s.fillOpacity > 0 {
+                let fillOpacity = s.fillOpacity ?? design.graphFillOpacity
+                if fillOpacity > 0 {
                     var fill = line
                     fill.addLine(to: CGPoint(x: point(count - 1).x, y: h))
                     fill.addLine(to: CGPoint(x: start, y: h))
                     fill.closeSubpath()
-                    context.fill(fill, with: .color(s.color.opacity(s.fillOpacity)))
+                    if design == .midnight {
+                        context.fill(fill, with: .linearGradient(
+                            Gradient(colors: [s.color.opacity(fillOpacity * 1.6), s.color.opacity(0.02)]),
+                            startPoint: CGPoint(x: 0, y: 0), endPoint: CGPoint(x: 0, y: h)
+                        ))
+                    } else {
+                        context.fill(fill, with: .color(s.color.opacity(fillOpacity)))
+                    }
                 }
-                let style = StrokeStyle(lineWidth: s.lineWidth, lineJoin: .round, dash: s.dashed ? [4, 3] : [])
-                context.stroke(line, with: .color(s.color), style: style)
+                let style = StrokeStyle(lineWidth: s.lineWidth ?? design.graphLineWidth, lineJoin: .round, dash: s.dashed ? [4, 3] : [])
+                var lineContext = context
+                if design.graphGlow {
+                    lineContext.addFilter(.shadow(color: s.color.opacity(0.85), radius: 3))
+                }
+                lineContext.stroke(line, with: .color(s.color), style: style)
             }
         }
         .background(Fluent.graphBackground)

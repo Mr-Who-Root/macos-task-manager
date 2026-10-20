@@ -15,6 +15,11 @@ struct RowTarget: Hashable {
 
     var ownedByUser: Bool { uid == getuid() }
 
+    static let finderPath = "/System/Library/CoreServices/Finder.app"
+
+    /// Finder is never ended, only restarted, like Windows Explorer in Windows Task Manager.
+    var isFinder: Bool { BundlePaths.outermostApp(path) == Self.finderPath }
+
     init(node: ProcNode) {
         pids = node.pids
         mainPID = node.mainPID
@@ -46,6 +51,7 @@ enum ProcessActions {
 
     /// Ends a task, asking first when it belongs to macOS or another user.
     static func requestEndTask(_ target: RowTarget, force: Bool = false) {
+        guard !target.isFinder else { return }
         if target.pids.contains(where: essentialPIDs.contains) {
             AppState.shared.alert = AppAlert(
                 title: "Task Manager can't end “\(target.name)”",
@@ -67,6 +73,7 @@ enum ProcessActions {
     }
 
     static func endTask(_ target: RowTarget, force: Bool) {
+        guard !target.isFinder else { return }
         if target.pids.contains(getpid()) {
             NSApp.terminate(nil)
             return
@@ -88,6 +95,21 @@ enum ProcessActions {
             )
         }
         Monitor.shared.refreshSoon()
+    }
+
+    /// Quits Finder and lets macOS relaunch it (relaunching it ourselves if macOS doesn't).
+    static func restartFinder() {
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder") {
+            kill(app.processIdentifier, SIGTERM)
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            if NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").isEmpty {
+                NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: RowTarget.finderPath),
+                                                   configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
+            }
+            Monitor.shared.refreshSoon()
+        }
     }
 
     /// Efficiency mode = Darwin background priority (lower CPU and I/O priority), like EcoQoS on Windows.

@@ -85,6 +85,7 @@ struct SystemSnapshot: Sendable {
     var disks: [DiskSnapshot] = []
     var networks: [NetworkSnapshot] = []
     var gpu: GPUSnapshot?
+    var sensors = SensorSnapshot()
 }
 
 /// Samples machine-wide counters. Not thread-safe: use from a single serial queue.
@@ -99,6 +100,7 @@ final class SystemSampler {
     private var diskMeta: [String: DiskMeta] = [:]
     private var volumes: [(bsd: String, name: String, isRoot: Bool, capacity: UInt64)] = []
     private var netMeta: [NetMeta] = []
+    private let sensorSampler = SensorSampler()
     private var lastUptime: UInt64 = 0
     private var tick = 0
 
@@ -118,6 +120,7 @@ final class SystemSampler {
         snapshot.disks = sampleDisks(elapsed: elapsed)
         snapshot.networks = sampleNetworks(elapsed: elapsed)
         snapshot.gpu = Self.sampleGPU()
+        snapshot.sensors = sensorSampler.sample()
         return snapshot
     }
 

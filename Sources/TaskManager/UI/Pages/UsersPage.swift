@@ -16,9 +16,7 @@ struct UsersPage: View {
             PageHeader(title: "Users") {
                 CommandButton(title: "Run new task", systemImage: "macwindow.badge.plus") { state.showRunTask = true }
                 CommandSeparator()
-                CommandButton(title: "End task", systemImage: "nosign", isDisabled: target == nil) {
-                    if let target { ProcessActions.requestEndTask(target) }
-                }
+                EndTaskCommand(target: target)
                 CommandBarMenu(title: "View", systemImage: "rectangle.3.group") {
                     Toggle("Show full account name", isOn: Binding(get: { settings.showFullAccountName }, set: { settings.showFullAccountName = $0 }))
                     Divider()

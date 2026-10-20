@@ -58,6 +58,10 @@ final class Monitor {
     private(set) var gpuRendererHistory = History()
     private(set) var gpuTilerHistory = History()
     private(set) var gpuMemoryHistory = History()
+    private(set) var temperatureHistory: [SensorComponent: History] = [:]
+    private(set) var fanHistory: [Int: History] = [:]
+    /// Lowest and highest reading per sensor since Task Manager started.
+    private(set) var sensorExtremes: [String: ClosedRange<Double>] = [:]
     /// Bumped when background code-signature lookups finish so Publisher columns refresh.
     private(set) var publisherRevision = 0
 
@@ -176,7 +180,28 @@ final class Monitor {
             gpuMemoryHistory.push(Double(gpu.memoryUsed))
         }
 
+        var temperatures = temperatureHistory
+        for component in s.sensors.components {
+            temperatures[component.component, default: History()].push(component.average)
+        }
+        temperatureHistory = temperatures
+        var fans = fanHistory
+        for fan in s.sensors.fans { fans[fan.id, default: History()].push(fan.rpm) }
+        fanHistory = fans
+        var extremes = sensorExtremes
+        for reading in s.sensors.readings {
+            let value = reading.celsius
+            if let range = extremes[reading.id] {
+                extremes[reading.id] = min(range.lowerBound, value)...max(range.upperBound, value)
+            } else {
+                extremes[reading.id] = value...value
+            }
+        }
+        sensorExtremes = extremes
+
         appHistory.record(result.nodes)
+        WidgetPublisher.shared.publish(self)
+        MenuBarController.shared.refresh()
 
         var paths = Set(result.processes.compactMap(\.path))
         paths.formUnion(result.nodes.compactMap(\.path))

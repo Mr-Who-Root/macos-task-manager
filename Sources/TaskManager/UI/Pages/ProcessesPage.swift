@@ -15,9 +15,7 @@ struct ProcessesPage: View {
             PageHeader(title: "Processes") {
                 CommandButton(title: "Run new task", systemImage: "macwindow.badge.plus") { state.showRunTask = true }
                 CommandSeparator()
-                CommandButton(title: "End task", systemImage: "nosign", isDisabled: target == nil) {
-                    if let target { ProcessActions.requestEndTask(target) }
-                }
+                EndTaskCommand(target: target)
                 CommandButton(title: "Efficiency mode", systemImage: target?.efficiency == true ? "leaf.fill" : "leaf",
                               isDisabled: target == nil || target?.ownedByUser == false, isOn: target?.efficiency == true) {
                     if let target { ProcessActions.setEfficiency(target, enabled: !target.efficiency) }

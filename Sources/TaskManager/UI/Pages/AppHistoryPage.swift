@@ -58,6 +58,7 @@ struct AppHistoryPage: View {
             }
             .tableStyle(.inset(alternatesRowBackgrounds: false))
             .scrollContentBackground(.hidden)
+            .foregroundStyle(Fluent.textPrimary)
             .contextMenu(forSelectionType: String.self) { ids in
                 if let id = ids.first, let entry = history.entries[id] {
                     Button("Search online") { ProcessActions.searchOnline(entry.name) }

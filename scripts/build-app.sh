@@ -27,6 +27,16 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/TaskManager" "$APP/Contents/MacOS/TaskManager"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
+echo "==> Adding widget extension"
+APPEX="$APP/Contents/PlugIns/TaskManagerWidgets.appex"
+mkdir -p "$APPEX/Contents/MacOS"
+cp "$BIN_DIR/TaskManagerWidgets" "$APPEX/Contents/MacOS/TaskManagerWidgets"
+cp Resources/Widgets-Info.plist "$APPEX/Contents/Info.plist"
+# The extension's version must match the app's.
+for key in CFBundleShortVersionString CFBundleVersion; do
+  plutil -replace "$key" -string "$(plutil -extract "$key" raw Resources/Info.plist)" "$APPEX/Contents/Info.plist"
+done
+
 echo "==> Rendering icon"
 ICONSET="build/AppIcon.iconset"
 rm -rf "$ICONSET"
@@ -35,6 +45,8 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
 echo "==> Signing (ad hoc)"
+# Sign the sandboxed extension first, then the app around it.
+codesign --force --sign - --entitlements Resources/Widgets.entitlements "$APPEX"
 codesign --force --sign - "$APP"
 
 if [[ $INSTALL == 1 ]]; then

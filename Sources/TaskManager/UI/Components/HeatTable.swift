@@ -271,7 +271,7 @@ private struct HeatRowView: View {
     let isSelected: Bool
     let memoryTotal: UInt64
     let onToggle: () -> Void
-    @State private var hovering = false
+    @State private var hovering = DebugHooks.forceHover
 
     var body: some View {
         HStack(spacing: 0) {
@@ -287,10 +287,11 @@ private struct HeatRowView: View {
         .foregroundStyle(Fluent.textPrimary)
         .frame(height: 28)
         .overlay {
+            // Drawn over the heat cells, so it must not swallow clicks meant for the chevron.
             if isSelected {
-                Rectangle().fill(Fluent.rowSelected)
+                Rectangle().fill(Fluent.rowSelected).allowsHitTesting(false)
             } else if hovering {
-                Rectangle().fill(Fluent.rowHover)
+                Rectangle().fill(Fluent.rowHover).allowsHitTesting(false)
             }
         }
         .onHover { hovering = $0 }
@@ -322,11 +323,13 @@ private struct HeatRowView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
                         .rotationEffect(.degrees(row.isExpanded ? 90 : 0))
-                        .frame(width: 16, height: 20)
+                        .frame(width: 22, height: 28)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Fluent.textSecondary)
+                .padding(.horizontal, -3)
+                .help(row.isExpanded ? "Collapse" : "Expand")
             } else {
                 Color.clear.frame(width: 16)
             }

@@ -24,7 +24,7 @@ struct SubtleButtonStyle: ButtonStyle {
                 .padding(.horizontal, horizontalPadding)
                 .frame(height: height)
                 .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: Fluent.controlRadius, style: .continuous)
                         .fill(configuration.isPressed ? Fluent.subtlePressed : (hovering && isEnabled ? Fluent.subtleHover : .clear))
                 )
                 .contentShape(Rectangle())
@@ -50,7 +50,7 @@ struct AccentButtonStyle: ButtonStyle {
                 .padding(.horizontal, 14)
                 .frame(minWidth: 84, minHeight: 30)
                 .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: Fluent.controlRadius, style: .continuous)
                         .fill(isEnabled ? Fluent.accent.opacity(configuration.isPressed ? 0.8 : 1) : Fluent.subtleSelected)
                 )
                 .contentShape(Rectangle())
@@ -76,10 +76,10 @@ struct StandardButtonStyle: ButtonStyle {
                 .padding(.horizontal, 14)
                 .frame(minWidth: 84, minHeight: 30)
                 .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: Fluent.controlRadius, style: .continuous)
                         .fill(hovering && !configuration.isPressed ? Fluent.controlFillHover : Fluent.controlFill)
                 )
-                .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Fluent.controlStroke))
+                .overlay(RoundedRectangle(cornerRadius: Fluent.controlRadius, style: .continuous).strokeBorder(Fluent.controlStroke))
                 .contentShape(Rectangle())
                 .onHover { hovering = $0 }
         }
@@ -129,6 +129,21 @@ struct CommandBarMenu<Content: View>: View {
         .menuIndicator(.hidden)
         .buttonStyle(SubtleButtonStyle())
         .fixedSize()
+    }
+}
+
+/// "End task", or "Restart" when Finder is selected (Finder can't be ended, only restarted).
+struct EndTaskCommand: View {
+    let target: RowTarget?
+
+    var body: some View {
+        if let target, target.isFinder {
+            CommandButton(title: "Restart", systemImage: "arrow.clockwise") { ProcessActions.restartFinder() }
+        } else {
+            CommandButton(title: "End task", systemImage: "nosign", isDisabled: target == nil) {
+                if let target { ProcessActions.requestEndTask(target) }
+            }
+        }
     }
 }
 
@@ -184,14 +199,14 @@ struct SearchBox: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 32)
-        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(focus.wrappedValue ? Fluent.graphBackground : Fluent.controlFill))
-        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Fluent.controlStroke))
+        .background(RoundedRectangle(cornerRadius: Fluent.controlRadius + 1, style: .continuous).fill(focus.wrappedValue ? Fluent.graphBackground : Fluent.controlFill))
+        .overlay(RoundedRectangle(cornerRadius: Fluent.controlRadius + 1, style: .continuous).strokeBorder(Fluent.controlStroke))
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(focus.wrappedValue ? Fluent.accent : Fluent.textTertiary.opacity(0.5))
                 .frame(height: focus.wrappedValue ? 2 : 1)
                 .padding(.horizontal, 1)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .clipShape(RoundedRectangle(cornerRadius: Fluent.controlRadius + 1))
         }
         .contentShape(Rectangle())
         .onTapGesture { focus.wrappedValue = true }
@@ -222,8 +237,8 @@ struct SettingCard<Control: View>: View {
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 64)
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Fluent.card))
-        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Fluent.cardStroke))
+        .background(RoundedRectangle(cornerRadius: Fluent.cardRadius, style: .continuous).fill(Fluent.card))
+        .overlay(RoundedRectangle(cornerRadius: Fluent.cardRadius, style: .continuous).strokeBorder(Fluent.cardStroke))
     }
 }
 
@@ -261,26 +276,21 @@ enum IconCache {
     }
 }
 
-/// Behind-window blur with a tint, standing in for Windows 11 Mica.
-struct MicaBackground: View {
-    var body: some View {
-        ZStack {
-            VisualEffectBackground()
-            Fluent.micaTint
-        }
-    }
-}
-
+/// Behind-window blur (Mica in Windows 11, the sidebar material in macOS).
 struct VisualEffectBackground: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .underWindowBackground
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .underWindowBackground
+        view.material = material
         view.blendingMode = .behindWindow
         view.state = .followsWindowActiveState
         return view
     }
 
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+    }
 }
 
 /// Hands the hosting NSWindow to a closure once the view is in a window.
