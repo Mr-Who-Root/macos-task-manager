@@ -153,7 +153,7 @@ struct ProcessRowMenu: View {
             }
             Toggle("Efficiency mode", isOn: Binding(
                 get: { target.efficiency },
-                set: { ProcessActions.setEfficiency(target, enabled: $0) }
+                set: { ProcessActions.requestEfficiency(target, enabled: $0) }
             ))
             Button(target.suspended ? "Resume" : "Suspend") {
                 ProcessActions.setSuspended(target, suspended: !target.suspended)

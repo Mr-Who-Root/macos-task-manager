@@ -26,7 +26,7 @@ struct DetailsPage: View {
                 EndTaskCommand(target: selected.map(target(for:)))
                 CommandButton(title: "Efficiency mode", systemImage: selected?.efficiencyMode == true ? "leaf.fill" : "leaf",
                               isDisabled: selected == nil || selected?.restricted == true, isOn: selected?.efficiencyMode == true) {
-                    if let selected { ProcessActions.setEfficiency(target(for: selected), enabled: !selected.efficiencyMode) }
+                    if let selected { ProcessActions.requestEfficiency(target(for: selected), enabled: !selected.efficiencyMode) }
                 }
             }
             ScrollViewReader { proxy in
@@ -72,9 +72,14 @@ struct DetailsPage: View {
         }
         .width(min: 44, ideal: 60)
         TableColumn("Status", value: \.detailStatus) { (p: ProcessSample) in
-            Text(p.detailStatus)
+            HStack(spacing: 4) {
+                if p.efficiencyMode {
+                    Image(systemName: "leaf.fill").foregroundStyle(Fluent.efficiency)
+                }
+                Text(p.detailStatus)
+            }
         }
-        .width(min: 60, ideal: 80)
+        .width(min: 60, ideal: 110)
         TableColumn("User name", value: \.user) { (p: ProcessSample) in
             Text(p.user)
         }
@@ -162,7 +167,7 @@ struct DetailsPage: View {
         }
         Toggle("Efficiency mode", isOn: Binding(
             get: { process.efficiencyMode },
-            set: { ProcessActions.setEfficiency(target, enabled: $0) }
+            set: { ProcessActions.requestEfficiency(target, enabled: $0) }
         ))
         Button(process.isSuspended ? "Resume process" : "Suspend process") {
             ProcessActions.setSuspended(target, suspended: !process.isSuspended)

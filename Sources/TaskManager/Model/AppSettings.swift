@@ -128,7 +128,7 @@ enum ProcColumn: String, CaseIterable, Identifiable {
     var defaultWidth: CGFloat {
         switch self {
         case .name: return 280
-        case .status: return 120
+        case .status: return 160
         case .publisher: return 150
         case .pid: return 64
         case .processName: return 170
@@ -194,6 +194,7 @@ final class AppSettings {
             GlobalHotKey.shared.setEnabled(globalHotKey)
         }
     }
+    var confirmEfficiencyMode: Bool { didSet { defaults.set(confirmEfficiencyMode, forKey: "confirmEfficiencyMode") } }
     var useFahrenheit: Bool { didSet { defaults.set(useFahrenheit, forKey: "useFahrenheit") } }
     var autoCheckUpdates: Bool { didSet { defaults.set(autoCheckUpdates, forKey: "autoCheckUpdates") } }
     var showFullAccountName: Bool { didSet { defaults.set(showFullAccountName, forKey: "showFullAccountName") } }
@@ -219,6 +220,7 @@ final class AppSettings {
         menuBarStyle = MenuBarStyle(rawValue: d.string(forKey: "menuBarStyle") ?? "") ?? .iconAndValue
         globalHotKey = d.object(forKey: "globalHotKey") as? Bool ?? true
         autoCheckUpdates = d.object(forKey: "autoCheckUpdates") as? Bool ?? true
+        confirmEfficiencyMode = d.object(forKey: "confirmEfficiencyMode") as? Bool ?? true
         useFahrenheit = d.object(forKey: "useFahrenheit") as? Bool ?? (Locale.current.measurementSystem == .us)
         showFullAccountName = d.bool(forKey: "showFullAccountName")
         historyAllProcesses = d.bool(forKey: "historyAllProcesses")

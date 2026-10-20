@@ -65,6 +65,10 @@ struct SettingsPage: View {
                     }
 
                     sectionTitle("Other options")
+                    SettingCard(systemImage: "leaf", title: "Ask before turning on efficiency mode",
+                                subtitle: "Show a confirmation explaining what efficiency mode does") {
+                        Toggle("", isOn: $settings.confirmEfficiencyMode).toggleStyle(.switch).labelsHidden().tint(Fluent.accent)
+                    }
                     SettingCard(systemImage: "rectangle.3.group", title: "Group processes by type", subtitle: "Split the Processes page into apps, background and macOS processes") {
                         Toggle("", isOn: $settings.groupByType).toggleStyle(.switch).labelsHidden().tint(Fluent.accent)
                     }

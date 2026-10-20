@@ -104,8 +104,17 @@ struct CommandButton: View {
             }
         }
         .buttonStyle(SubtleButtonStyle())
+        .background(
+            RoundedRectangle(cornerRadius: Fluent.controlRadius, style: .continuous)
+                .fill(isOn ? Fluent.efficiency.opacity(0.15) : .clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Fluent.controlRadius, style: .continuous)
+                .strokeBorder(isOn ? Fluent.efficiency.opacity(0.45) : .clear)
+        )
         .disabled(isDisabled)
-        .help(title)
+        .help(isOn ? "\(title) is on. Click to turn it off." : title)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 
