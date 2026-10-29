@@ -188,6 +188,9 @@ enum DeepLink {
             case "disk": if let first = system.disks.first(where: \.isSystemDisk) ?? system.disks.first { state.perfItem = .disk(first.id) }
             default: break
             }
+        case let name?:
+            // Any other page by name, such as taskmanager://timeline.
+            if let page = Page(rawValue: name) { state.page = page }
         default: break
         }
         state.bringToFront()

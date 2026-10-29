@@ -41,5 +41,11 @@ let package = Package(
                 .unsafeFlags(["-Xlinker", "-e", "-Xlinker", "_NSExtensionMain"]),
             ]
         ),
+        .testTarget(
+            name: "TaskManagerTests",
+            dependencies: ["TaskManager", "TaskManagerShared"],
+            path: "Tests/TaskManagerTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
     ]
 )

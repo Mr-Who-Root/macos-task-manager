@@ -29,16 +29,20 @@ app and relaunches it.
 
 | Page | What it shows |
 | --- | --- |
-| **Processes** | Apps, background processes and macOS processes, grouped with their helper processes. Heat-mapped CPU / Memory / Disk / Network cells, header totals, sortable and resizable columns, optional Publisher / PID / Process name / User / Threads / Architecture / Power usage / Power usage trend columns (right-click the header). |
+| **Processes** | Apps, background processes and macOS processes, grouped with their helper processes. Heat-mapped CPU / Memory / Disk / Network cells, header totals, sortable and resizable columns, optional Publisher / PID / Process name / User / Threads / Architecture / Power usage / Power usage trend columns (right-click the header). **Map** shows the same apps as a treemap sized by memory, CPU, power or network; double-click an app to see its processes. Apps that stop responding are marked **Not responding**, with End task, Wait and a saved sample of what they were doing. |
 | **Performance** | CPU (overall or per logical processor, optional kernel time), Memory (with composition bar), each Disk, each network adapter, and GPU, all with 60-sample graphs. |
+| **Timeline** | Rewind: CPU, memory, disk, network and power for the last hour, 6 hours or 24 hours. Hover over the graph to see any minute, click to keep it, and see which apps were behind it, plus events such as apps that stopped responding. Jump to the biggest moments. |
 | **Temperatures** | CPU performance and efficiency cores, GPU, SoC, memory, SSD, battery, Wi-Fi, airflow and power-delivery sensors (average, hottest, min/max, history) plus fan speeds and thermal pressure. |
 | **Battery** | Charge, time remaining and charge rate; whole-Mac power draw; health (maximum capacity, cycle count, condition); battery temperature; the power adapter; battery level and power draw over the last 24 hours; battery usage by app (power now, two-minute trend, energy used, idle wake-ups); and which apps are preventing sleep. |
-| **App history** | CPU time, network, disk and energy usage per app, recorded while Task Manager runs and saved between launches. |
+| **App history** | CPU time, network, disk and energy usage per app, recorded while Task Manager runs and saved between launches. **Data usage** shows what each app downloaded and uploaded today, in the last 7 days and in the last 30 days, and highlights big uploaders. |
+| **Privacy** | Which apps are using the camera, microphone, screen recording and location right now and over the last 24 hours (the apps behind the menu bar's privacy indicators), and which apps are listening for network connections. |
 | **Startup apps** | Login items plus third-party launch agents and daemons, with publisher (from the code signature), status and enable/disable. |
 | **Users** | Per-account totals, expandable to that account's apps. |
 | **Details** | Every process: PID, status, user, CPU, CPU time, memory, threads, architecture (Rosetta shows as x64), priority and path. |
 | **Services** | launchd services in the user and system domains, with start / stop / restart. |
 | **Settings** | Start page, update speed (High / Normal / Low / Paused), theme, always on top, menu-bar CPU meter, global shortcut. |
+
+**Why is my Mac slow?** (`⌘D`, or the button on Processes, Performance and Timeline) looks at what's happening and explains it in plain words: apps that stopped responding, apps hogging the CPU, low memory, a full or busy disk, overheating, Spotlight, Time Machine, Photos or iCloud working in the background, Low Power Mode, a long uptime and big uploads. Each finding comes with a fix, such as End task, Efficiency mode or the right System Settings pane.
 
 Actions work the way they do on Windows: **End task** (`Delete` / `⌘⌫`), Force end task, **Efficiency mode**,
 Suspend / Resume, Set priority, End process tree, Open file location, Search online, Properties, and **Run new
@@ -98,7 +102,7 @@ open "build/Task Manager.app"
 ./scripts/build-app.sh --universal # Apple silicon + Intel binary
 ```
 
-For quick iteration during development, `swift run` also works.
+For quick iteration during development, `swift run` also works. Run the tests with `swift test`.
 
 ## Releasing
 
@@ -131,17 +135,26 @@ The website lives in `docs/` and is served by GitHub Pages from the `main` branc
   telemetry Apple silicon laptops report; elsewhere it's the battery's discharge rate, so it's only shown on
   battery power. The 24-hour chart is recorded once a minute while Task Manager runs.
 - Preventing sleep lists apps' power assertions (`pmset -g assertions`), leaving out powerd's own.
+- The Privacy page reads the same log Control Center uses for the menu bar's camera, microphone, screen
+  recording and location indicators (`log stream`, no extra permission). It lists your own apps' listening
+  ports; system services run as other users and only an administrator can inspect them.
+- An app is **Not responding** when WindowServer has flagged it (the spinning pointer) or its main thread has
+  been fully busy for 5 seconds. A sample of what it was doing is saved to `~/Library/Logs/TaskManager/Hangs`
+  (the 20 newest are kept).
+- The Timeline is recorded once a minute while Task Manager runs and keeps 24 hours. Data usage keeps 31 days
+  and, like the Network column, counts open connections only.
 
 ## Layout
 
 ```
 Sources/TaskManager/
   App/        entry point, menu commands, app delegate, debug-only UI test hooks
-  Core/       samplers (libproc, sysctl, IOKit, SMC/HID sensors, battery and power, routing socket), grouping, launchd, actions, updater
-  Model/      Monitor (sampling + history), settings, UI state, app history, battery log, widget publisher
+  Core/       samplers (libproc, sysctl, IOKit, SMC/HID sensors, battery and power, routing socket), hang detection, listening ports, treemap layout, grouping, launchd, actions, updater
+  Model/      Monitor (sampling + history), settings, UI state, app history, battery log, timeline, data usage, privacy monitor, diagnosis, widget publisher
   UI/         window shell, designs and tokens, heat table, graphs, menu bar, pages, dialogs
 Sources/TaskManagerWidgets/   WidgetKit extension (packaged as Contents/PlugIns/TaskManagerWidgets.appex)
 Sources/TaskManagerShared/    the snapshot model shared by the app and its widgets
+Tests/TaskManagerTests/       unit tests (swift test)
 scripts/      build-app.sh, release.sh, make-icon.swift
 docs/         website (GitHub Pages) and install.sh
 ```

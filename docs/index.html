@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Task Manager for macOS</title>
-<meta name="description" content="The Windows 11 Task Manager, rebuilt natively for macOS. Heat-mapped processes, live performance graphs, battery and power usage, sixteen widgets, startup apps, services and online updates.">
+<meta name="description" content="The Windows 11 Task Manager, rebuilt natively for macOS. Heat-mapped processes, live performance graphs, a timeline, &ldquo;Why is my Mac slow?&rdquo;, battery and privacy pages, sixteen widgets, startup apps, services and online updates.">
 <meta property="og:title" content="Task Manager for macOS">
 <meta property="og:description" content="The Windows 11 Task Manager, rebuilt natively for macOS.">
 <meta property="og:image" content="https://mr-who-root.github.io/macos-task-manager/assets/screen-cpu.png">
@@ -242,6 +242,11 @@ footer a { color: var(--text-2); }
     <symbol id="i-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14z"/><path d="M5 19l7-7"/></symbol>
     <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 10h1M11 10h1M15 10h2M7 14h10" stroke-linecap="round"/></symbol>
     <symbol id="i-thermo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v7"/></symbol>
+    <symbol id="i-timeline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 19.5h17"/><path d="M4.5 15.5l4-5 3.5 3 4.5-7 3 4"/><circle cx="16.5" cy="6.5" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V6.5a1.5 1.5 0 0 1 3 0V11"/><path d="M11 10.5V5a1.5 1.5 0 0 1 3 0v6"/><path d="M14 10.5V6.5a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 7-6 7-2.8 0-4.3-1.4-5.6-3.6L4 13.2a1.5 1.5 0 0 1 2.6-1.4L8 14"/></symbol>
+    <symbol id="i-stethoscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5H5a1 1 0 0 0-1 1V9a4.5 4.5 0 0 0 9 0V4.5a1 1 0 0 0-1-1h-1"/><path d="M8.5 13.5v1.5a5 5 0 0 0 10 0v-2"/><circle cx="18.5" cy="11" r="2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.3 3.5h7.4l5.3 5.3v7.4l-5.3 5.3H8.3L3 16.2V8.8z"/><path d="M12 8v5"/><circle cx="12" cy="16.2" r="0.9" fill="currentColor"/></symbol>
+    <symbol id="i-treemap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M11 3.5v17M11 12h9.5M15.5 12v8.5"/></symbol>
     <symbol id="i-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="17" height="10" rx="2.5"/><path d="M21.5 10.5v3"/><path d="M11.5 9 9 12.5h3.5L10 15.5"/></symbol>
     <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.9 1.4-1.9-.5-1.2.3-2.6 1.7-2.6H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.9-9-8.5-9z"/><circle cx="7.8" cy="11" r="1" fill="currentColor"/><circle cx="10.5" cy="7.5" r="1" fill="currentColor"/><circle cx="14.8" cy="7.8" r="1" fill="currentColor"/></symbol>
     <symbol id="i-menubar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 8.5h18"/><path d="M13.5 6.5h1.5M16.5 6.5h2" stroke-linecap="round"/></symbol>
@@ -320,13 +325,15 @@ footer a { color: var(--text-2); }
   <section id="features">
     <div class="wrap">
       <h2 class="section-title">Every page you know from Windows</h2>
-      <p class="section-lede">The same pages, layout and shortcuts, reading real data from macOS, plus Temperatures and Battery pages Windows never had.</p>
+      <p class="section-lede">The same pages, layout and shortcuts, reading real data from macOS, plus Timeline, Temperatures, Battery and Privacy pages Windows never had.</p>
       <div class="grid">
-        <div class="card"><div class="glyph"><svg><use href="#i-grid"/></svg></div><h3>Processes</h3><p>Apps, background and macOS processes, each app grouped with its helpers. Heat-mapped CPU, memory, disk and network, plus the columns you choose.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-grid"/></svg></div><h3>Processes</h3><p>Apps, background and macOS processes, each app grouped with its helpers. Heat-mapped CPU, memory, disk and network, the columns you choose, or a map of what&rsquo;s using the most.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-pulse"/></svg></div><h3>Performance</h3><p>Live 60-second graphs for CPU (overall or per core), memory, every disk, each network adapter and the GPU.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-timeline"/></svg></div><h3>Timeline</h3><p>Rewind the last 24 hours: see what was running at any minute, the apps behind every spike, and when an app stopped responding.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-thermo"/></svg></div><h3>Temperatures</h3><p>CPU cores, GPU, SoC, memory, SSD and battery sensors with min, max and history, plus fan speeds and thermal pressure.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-battery"/></svg></div><h3>Battery</h3><p>Charge, time left, power draw, health and cycle count, the last 24 hours, battery usage by app, and what is keeping your Mac awake.</p></div>
-        <div class="card"><div class="glyph"><svg><use href="#i-history"/></svg></div><h3>App history</h3><p>CPU time, network, disk and energy use for each app, kept between launches.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-history"/></svg></div><h3>App history</h3><p>CPU time, network, disk and energy use for each app, kept between launches, plus data usage per app for today, the week and the month.</p></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-hand"/></svg></div><h3>Privacy</h3><p>Which apps are using your camera, microphone, screen and location, now and earlier today, and which are listening for connections.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-gauge"/></svg></div><h3>Startup apps</h3><p>Login items, launch agents and daemons with their publisher. Enable or disable them in one click.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-users"/></svg></div><h3>Users</h3><p>What each account on your Mac is using, expandable to its apps.</p></div>
         <div class="card"><div class="glyph"><svg><use href="#i-list"/></svg></div><h3>Details</h3><p>Every process with PID, user, CPU time, threads, architecture and priority, including Rosetta apps.</p></div>
@@ -334,6 +341,9 @@ footer a { color: var(--text-2); }
         <div class="card"><div class="glyph"><svg><use href="#i-gear"/></svg></div><h3>Settings</h3><p>Five designs, accent colours, update speed, always on top, menu bar items and online updates.</p></div>
       </div>
       <div class="extras">
+        <div class="card"><div class="glyph"><svg><use href="#i-stethoscope"/></svg></div><div><h3>Why is my Mac slow?</h3><p>One click explains what&rsquo;s slowing things down, in plain words: a stuck app, a CPU hog, low memory, a full disk, heat or background work, each with a fix.</p></div></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-alert"/></svg></div><div><h3>Not responding</h3><p>Frozen apps are marked Not responding, like on Windows, with End task, Wait and a saved sample of what they were doing.</p></div></div>
+        <div class="card"><div class="glyph"><svg><use href="#i-treemap"/></svg></div><div><h3>Process map</h3><p>See every app as a tile sized by memory, CPU, power or network. Double-click one to see its processes.</p></div></div>
         <div class="card"><div class="glyph"><svg><use href="#i-key"/></svg></div><div><h3>Press <kbd>⌃</kbd> <kbd>⇧</kbd> <kbd>⎋</kbd> anywhere</h3><p>The same shortcut as Ctrl+Shift+Esc brings Task Manager to the front from any app.</p></div></div>
         <div class="card"><div class="glyph"><svg><use href="#i-leaf"/></svg></div><div><h3>Efficiency mode and End task</h3><p>Lower a process's priority, suspend it, end it or its whole tree. Run new task even understands <code>notepad</code> and <code>calc</code>.</p></div></div>
         <div class="card"><div class="glyph"><svg><use href="#i-refresh"/></svg></div><div><h3>Updates itself</h3><p>Checks GitHub once a day. Install a new version from Settings and it restarts on the new build.</p></div></div>
@@ -358,8 +368,21 @@ footer a { color: var(--text-2); }
 
   <section id="new">
     <div class="wrap">
+      <h2 class="section-title">New in 1.3</h2>
+      <p class="section-lede">Find out why your Mac is slow, rewind what it was doing, and see which apps use your camera, microphone and network.</p>
+      <div class="new-grid">
+        <figure class="wide"><img src="assets/screen-timeline.jpg" alt="Timeline page with a CPU graph for the last hour and the apps behind the selected minute" loading="lazy" width="1600" height="1066"><figcaption><strong>Timeline.</strong> Rewind the last hour, 6 hours or 24 hours of CPU, memory, disk, network and power. Hover over any minute to see the apps behind it, and spot when an app stopped responding.</figcaption></figure>
+        <figure><img src="assets/screen-diagnosis.jpg" alt="Why is my Mac slow? showing an app that is not responding and background work explained" loading="lazy" width="1600" height="1066"><figcaption><strong>Why is my Mac slow?</strong> One click explains what&rsquo;s slowing your Mac down, in plain words, with a fix for each.</figcaption></figure>
+        <figure><img src="assets/screen-map.jpg" alt="Processes page as a map, with every app as a tile sized by memory" loading="lazy" width="1600" height="1066"><figcaption><strong>Process map.</strong> Every app as a tile sized by memory, CPU, power or network. Double-click one to see its processes.</figcaption></figure>
+        <figure class="wide"><img src="assets/screen-not-responding.jpg" alt="Processes page marking an app Not responding, with End task, Wait and Show sample" loading="lazy" width="1600" height="1066"><figcaption><strong>Not responding.</strong> Frozen apps are marked like on Windows, with End task, Wait and a sample of what they were doing.</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="new-1-2">
+    <div class="wrap">
       <h2 class="section-title">New in 1.2</h2>
-      <p class="section-lede">A Battery page, power usage for every app, and sixteen widgets for your desktop. Plus five designs, temperatures and menu bar items from 1.1.</p>
+      <p class="section-lede">A Battery page, power usage for every app and sixteen widgets for your desktop, plus five designs, temperatures and menu bar items from 1.1.</p>
       <div class="new-grid">
         <figure class="wide"><img src="assets/widgets.jpg" alt="Battery, Dashboard, Power Draw, At a Glance and Preventing Sleep widgets in the Midnight design" loading="lazy" width="1400" height="731"><figcaption><strong>Sixteen widgets.</strong> CPU, Memory, GPU, System, Top Apps, Temperatures, Network, Storage, Battery, Battery Usage, Power Draw, Battery Health, Preventing Sleep, At a Glance, Performance and an extra-large Dashboard, in the design you chose. Click one to open that page.</figcaption></figure>
         <figure><img src="assets/screen-battery.jpg" alt="Battery page showing charge, power draw, health, temperature, the power adapter and the last 24 hours" loading="lazy" width="1600" height="1066"><figcaption><strong>Battery.</strong> Charge and time left, what the whole Mac is drawing, health and cycle count, the last 24 hours, battery usage by app and the apps keeping your Mac awake.</figcaption></figure>

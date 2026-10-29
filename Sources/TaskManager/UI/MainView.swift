@@ -20,6 +20,13 @@ struct MainView: View {
             .sheet(item: $state.properties) { target in
                 ProcessPropertiesSheet(pid: target.pid).fontDesign(design.fontDesign)
             }
+            .sheet(isPresented: $state.showDiagnosis) {
+                DiagnosisSheet()
+                    .environment(Monitor.shared)
+                    .environment(AppSettings.shared)
+                    .environment(AppState.shared)
+                    .fontDesign(design.fontDesign)
+            }
             .alert(
                 state.alert?.title ?? "",
                 isPresented: Binding(get: { state.alert != nil }, set: { if !$0 { state.alert = nil } }),
@@ -138,9 +145,11 @@ struct PageContainer: View {
         switch state.page {
         case .processes: ProcessesPage()
         case .performance: PerformancePage()
+        case .timeline: TimelinePage()
         case .temperatures: TemperaturesPage()
         case .battery: BatteryPage()
         case .appHistory: AppHistoryPage()
+        case .privacy: PrivacyPage()
         case .startup: StartupAppsPage()
         case .users: UsersPage()
         case .details: DetailsPage()
@@ -275,8 +284,21 @@ struct NavigationTabs: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(Array(Page.allCases.filter { $0 != .settings }.enumerated()), id: \.element) { index, page in
-                TabButton(page: page, index: index + 1)
+            // Scrolls sideways when the window is too narrow for every tab.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(Array(Page.allCases.filter { $0 != .settings }.enumerated()), id: \.element) { index, page in
+                        TabButton(page: page, index: index + 1)
+                    }
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            // Fade the trailing edge so a cut-off tab reads as "scroll for more".
+            .mask {
+                HStack(spacing: 0) {
+                    Rectangle()
+                    LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 28)
+                }
             }
             Spacer(minLength: 8)
             TabButton(page: .settings, index: Page.allCases.count, iconOnly: true)
@@ -346,9 +368,9 @@ struct NavigationSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             header("Monitor")
-            ForEach([Page.processes, .performance, .temperatures, .battery, .appHistory]) { row($0) }
+            ForEach([Page.processes, .performance, .timeline, .temperatures, .battery, .appHistory]) { row($0) }
             header("System").padding(.top, 10)
-            ForEach([Page.startup, .users, .details, .services]) { row($0) }
+            ForEach([Page.privacy, .startup, .users, .details, .services]) { row($0) }
             Spacer(minLength: 8)
             row(.settings)
         }

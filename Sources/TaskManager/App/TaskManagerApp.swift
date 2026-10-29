@@ -50,6 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         Monitor.shared.appHistory.save()
         Monitor.shared.batteryLog.save()
+        Monitor.shared.timeline.save()
+        Monitor.shared.dataUsage.save()
+        Monitor.shared.privacy.stop()
     }
 }
 
@@ -71,6 +74,8 @@ struct TaskManagerCommands: Commands {
             Divider()
             Button("Refresh now") { Monitor.shared.refreshNow() }
                 .keyboardShortcut("r")
+            Button("Why is my Mac slow?") { AppState.shared.showDiagnosis = true }
+                .keyboardShortcut("d")
             Picker("Update speed", selection: Binding(
                 get: { AppSettings.shared.updateSpeed },
                 set: { AppSettings.shared.updateSpeed = $0 }

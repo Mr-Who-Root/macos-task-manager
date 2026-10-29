@@ -21,18 +21,33 @@ struct SampleResult: Sendable {
     let nodes: [ProcNode]
     let system: SystemSnapshot
     let energyAvailable: Bool
+    let hangs: [Int32: HangDetector.Hang]
+    /// Refreshed every few seconds; nil when unchanged since the last result.
+    let listeningPorts: [ListeningPort]?
 }
 
 /// Owns the samplers; only ever used from the monitor's serial queue.
 final class SamplingEngine: @unchecked Sendable {
     private let processSampler = ProcessSampler()
     private let systemSampler = SystemSampler()
+    private let hangDetector = HangDetector()
+    private var lastPortScan = Date.distantPast
 
     func sample(apps: [AppRef], currentUID: UInt32, efficient: Set<String>) -> SampleResult {
-        let processes = processSampler.sample(efficient: efficient)
+        var processes = processSampler.sample(efficient: efficient)
+        let hangs = hangDetector.sample(apps.filter(\.isRegular).map(\.pid))
+        if !hangs.isEmpty {
+            for i in processes.indices where hangs[processes[i].pid] != nil { processes[i].notResponding = true }
+        }
         let system = systemSampler.sample()
         let nodes = ProcessTreeBuilder.build(processes, apps: apps, currentUID: currentUID)
-        return SampleResult(processes: processes, nodes: nodes, system: system, energyAvailable: processSampler.energyAvailable)
+        var ports: [ListeningPort]?
+        if Date().timeIntervalSince(lastPortScan) >= 10 {
+            lastPortScan = Date()
+            ports = NetworkPorts.listening()
+        }
+        return SampleResult(processes: processes, nodes: nodes, system: system, energyAvailable: processSampler.energyAvailable,
+                            hangs: hangs, listeningPorts: ports)
     }
 }
 
@@ -67,11 +82,19 @@ final class Monitor {
     private(set) var batteryTemperatureHistory = History()
     /// False on Macs that don't account energy per process (Intel); power usage is then estimated from CPU use.
     private(set) var energyAvailable = false
+    /// Apps that have stopped responding, by PID.
+    private(set) var hangs: [Int32: HangDetector.Hang] = [:]
+    /// Diagnostic samples saved when apps stopped responding, by PID.
+    private(set) var hangSamples: [Int32: String] = [:]
+    private(set) var listeningPorts: [ListeningPort] = []
     /// Bumped when background code-signature lookups finish so Publisher columns refresh.
     private(set) var publisherRevision = 0
 
     let appHistory = AppHistoryStore()
     let batteryLog = BatteryLog()
+    let timeline = TimelineStore()
+    let dataUsage = DataUsageStore()
+    let privacy = PrivacyMonitor()
 
     @ObservationIgnored private let engine = SamplingEngine()
     @ObservationIgnored private let queue = DispatchQueue(label: "TaskManager.sampling", qos: .userInitiated)
@@ -91,6 +114,7 @@ final class Monitor {
     func start() {
         guard !started else { return }
         started = true
+        privacy.start()
         sampleNow()
         // A second quick sample gives every rate a baseline straight away.
         Task { @MainActor in
@@ -207,6 +231,7 @@ final class Monitor {
         sensorExtremes = extremes
 
         energyAvailable = result.energyAvailable
+        recordActivity(result)
         if s.battery.isPresent {
             if let draw = s.battery.powerDraw { powerDrawHistory.push(draw) }
             if let celsius = batteryTemperature { batteryTemperatureHistory.push(celsius) }
@@ -223,6 +248,102 @@ final class Monitor {
         CodeSigning.prefetch(paths) { [weak self] in
             Task { @MainActor in self?.publisherRevision += 1 }
         }
+    }
+
+    // MARK: Timeline, data usage and hangs
+
+    @ObservationIgnored private var lastThermalState = 0
+    @ObservationIgnored private var lastPressure = 1
+
+    private func recordActivity(_ result: SampleResult) {
+        let s = result.system
+        let names = Dictionary(result.processes.map { ($0.pid, $0.name) }, uniquingKeysWith: { a, _ in a })
+        let appNames = Dictionary(result.nodes.flatMap { node in node.pids.map { ($0, node.name) } }, uniquingKeysWith: { a, _ in a })
+
+        // Apps that just stopped responding: note it and keep a sample of what they're doing.
+        for (pid, _) in result.hangs where hangs[pid] == nil {
+            let name = appNames[pid] ?? names[pid] ?? "PID \(pid)"
+            timeline.note("\(name) stopped responding")
+            captureHangSample(pid: pid, name: name)
+        }
+        hangs = result.hangs
+        hangSamples = hangSamples.filter { result.hangs[$0.key] != nil || names[$0.key] != nil }
+        if let ports = result.listeningPorts { listeningPorts = ports }
+
+        if s.sensors.thermalState != lastThermalState {
+            if s.sensors.thermalState > 0 || lastThermalState > 0 { timeline.note("Thermal pressure: \(s.sensors.thermalStateText)") }
+            lastThermalState = s.sensors.thermalState
+        }
+        if s.memory.pressure != lastPressure {
+            if s.memory.pressure > 1 || lastPressure > 1 { timeline.note("Memory pressure: \(s.memory.pressureText)") }
+            lastPressure = s.memory.pressure
+        }
+
+        timeline.record(TimelineStore.Sample(
+            cpu: s.cpu.total,
+            memory: s.memory.usedFraction,
+            disk: s.disks.reduce(0) { $0 + $1.readRate + $1.writeRate },
+            network: s.networks.reduce(0) { $0 + $1.sendRate + $1.receiveRate } / 8,
+            power: s.battery.powerDraw,
+            temperature: s.sensors.cpuTemperature,
+            apps: result.nodes.map {
+                (key: $0.historyKey, name: $0.name, cpu: $0.cpu, memory: $0.memory,
+                 power: result.energyAvailable ? $0.power : nil, disk: $0.diskRate, network: $0.netRate)
+            }
+        ))
+        dataUsage.record(result.nodes)
+    }
+
+    @ObservationIgnored private var lastSampled: [Int32: Date] = [:]
+
+    private func captureHangSample(pid: Int32, name: String) {
+        // One sample per app every few minutes is plenty, and sampling briefly pauses the app.
+        if let last = lastSampled[pid], Date().timeIntervalSince(last) < 300 { return }
+        lastSampled[pid] = Date()
+        let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Logs/TaskManager/Hangs", isDirectory: true)
+        guard let logs else { return }
+        let stamp = Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false)).replacingOccurrences(of: ":", with: "-")
+        let safeName = name.replacingOccurrences(of: "/", with: "-")
+        let file = logs.appendingPathComponent("\(safeName) \(stamp).txt")
+        Task.detached(priority: .utility) {
+            try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+            Shell.run("/usr/bin/sample", [String(pid), "3", "-file", file.path])
+            guard FileManager.default.fileExists(atPath: file.path) else { return }
+            // Keep the 20 newest samples.
+            let all = (try? FileManager.default.contentsOfDirectory(at: logs, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            let sorted = all.sorted {
+                let a = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                let b = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return a > b
+            }
+            for old in sorted.dropFirst(20) { try? FileManager.default.removeItem(at: old) }
+            await MainActor.run { self.hangSamples[pid] = file.path }
+        }
+    }
+
+    /// Everything "Why is my Mac slow?" looks at.
+    var diagnosisInput: DiagnosisInput {
+        var fs = statfs()
+        let hasDisk = statfs("/", &fs) == 0
+        let systemDisk = system.disks.first(where: \.isSystemDisk) ?? system.disks.first
+        let upload = dataUsage.totals(days: 1).max { $0.sent < $1.sent }
+        return DiagnosisInput(
+            nodes: nodes,
+            cpuHistory: cpuHistory.values,
+            memory: system.memory,
+            diskFree: hasDisk ? UInt64(fs.f_bavail) * UInt64(fs.f_bsize) : 0,
+            diskTotal: hasDisk ? UInt64(fs.f_blocks) * UInt64(fs.f_bsize) : 0,
+            diskActiveHistory: systemDisk.flatMap { diskActiveHistory[$0.id]?.values } ?? [],
+            gpuHistory: gpuHistory.values,
+            thermalState: system.sensors.thermalState,
+            cpuTemperature: system.sensors.cpuTemperature,
+            lowPowerMode: system.battery.lowPowerMode,
+            uptime: Date().timeIntervalSince(HardwareInfo.shared.bootTime),
+            batteryCondition: system.battery.isPresent ? system.battery.condition : nil,
+            hangSamples: hangSamples,
+            topUploadToday: upload.map { ($0.name, $0.sent) }
+        )
     }
 
     // MARK: Aggregates used by several pages
