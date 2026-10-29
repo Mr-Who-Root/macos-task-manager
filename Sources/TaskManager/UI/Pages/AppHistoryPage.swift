@@ -17,7 +17,7 @@ struct AppHistoryPage: View {
                 CommandButton(title: "Delete usage history", systemImage: "trash") {
                     state.alert = AppAlert(
                         title: "Delete usage history?",
-                        message: "This clears the CPU time, network and disk usage recorded for every app.",
+                        message: "This clears the CPU time, network, disk and energy usage recorded for every app.",
                         action: .init(title: "Delete", role: .destructive) { history.reset() }
                     )
                 }
@@ -51,6 +51,12 @@ struct AppHistoryPage: View {
                     Text(Fmt.bytes(entry.diskBytes)).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .width(min: 70, ideal: 100)
+                if monitor.energyAvailable {
+                    TableColumn("Energy", value: \.energy) { entry in
+                        Text(Fmt.energy(entry.energy)).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .width(min: 70, ideal: 100)
+                }
                 TableColumn("Last active", value: \.lastUsed) { entry in
                     Text(entry.lastUsed.formatted(date: .abbreviated, time: .shortened)).foregroundStyle(Fluent.textSecondary)
                 }
@@ -70,7 +76,7 @@ struct AppHistoryPage: View {
             }
             .overlay {
                 if entries.isEmpty {
-                    Text("Usage appears here as apps use CPU, disk and network.")
+                    Text("Usage appears here as apps use CPU, disk, network and energy.")
                         .foregroundStyle(Fluent.textSecondary)
                 }
             }

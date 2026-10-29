@@ -4,9 +4,19 @@ import WidgetKit
 
 @main
 struct TaskManagerWidgetBundle: WidgetBundle {
+    // A bundle's body takes at most ten widgets, so they come in groups.
+    var body: some Widget {
+        ResourceWidgets().body
+        BatteryWidgets().body
+        OverviewWidgets().body
+    }
+}
+
+struct ResourceWidgets: WidgetBundle {
     var body: some Widget {
         CPUWidget()
         MemoryWidget()
+        GPUWidget()
         SystemWidget()
         TopAppsWidget()
         TemperatureWidget()
@@ -21,8 +31,8 @@ struct CPUWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "CPUWidget", provider: StatsProvider()) { CPUWidgetView(entry: $0) }
             .configurationDisplayName("CPU")
-            .description("Processor usage with a live graph and every core.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .description("Processor usage with a live graph and every core, plus the busiest apps on the large size.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -30,8 +40,8 @@ struct MemoryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "MemoryWidget", provider: StatsProvider()) { MemoryWidgetView(entry: $0) }
             .configurationDisplayName("Memory")
-            .description("Memory in use, compressed, cached and swap.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .description("Memory in use, compressed, cached and swap, plus the apps using the most on the large size.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -58,7 +68,7 @@ struct TemperatureWidget: Widget {
         StaticConfiguration(kind: "TemperatureWidget", provider: StatsProvider()) { TemperatureWidgetView(entry: $0) }
             .configurationDisplayName("Temperatures")
             .description("CPU, GPU, SSD and battery temperatures and fan speed.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -67,7 +77,7 @@ struct NetworkWidget: Widget {
         StaticConfiguration(kind: "NetworkWidget", provider: StatsProvider()) { NetworkWidgetView(entry: $0) }
             .configurationDisplayName("Network")
             .description("Upload and download speed.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -75,8 +85,8 @@ struct StorageWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "StorageWidget", provider: StatsProvider()) { StorageWidgetView(entry: $0) }
             .configurationDisplayName("Storage")
-            .description("Free space on your startup disk.")
-            .supportedFamilies([.systemSmall])
+            .description("Free space on your startup disk, plus disk activity on the medium size.")
+            .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 
@@ -107,6 +117,24 @@ enum WFmt {
         let t = Int(seconds)
         let days = t / 86_400, hours = (t % 86_400) / 3_600, minutes = (t % 3_600) / 60
         return days > 0 ? "\(days)d \(hours)h" : "\(hours)h \(minutes)m"
+    }
+
+    /// "0 W", "86 mW", "1.4 W", "18 W".
+    static func watts(_ value: Double) -> String {
+        let v = abs(value)
+        if v < 0.0005 { return "0 W" }
+        if v < 0.9995 { return "\(Int((v * 1000).rounded())) mW" }
+        return v < 10 ? String(format: "%.1f W", v) : String(format: "%.0f W", v)
+    }
+
+    /// "45 min", "2 h 05 min".
+    static func duration(_ minutes: Int) -> String {
+        minutes < 60 ? "\(minutes) min" : String(format: "%d h %02d min", minutes / 60, minutes % 60)
+    }
+
+    /// "45m", "2h 05m", for tight spaces.
+    static func shortDuration(_ minutes: Int) -> String {
+        minutes < 60 ? "\(minutes)m" : String(format: "%dh %02dm", minutes / 60, minutes % 60)
     }
 }
 
@@ -224,14 +252,30 @@ struct Meter: View {
     }
 }
 
+/// An app's icon from the snapshot, or a blank tile.
+struct AppIcon: View {
+    let data: Data?
+    let theme: WidgetTheme
+    var size: CGFloat = 16
+
+    var body: some View {
+        if let data, let image = NSImage(data: data) {
+            Image(nsImage: image).resizable().frame(width: size, height: size)
+        } else {
+            RoundedRectangle(cornerRadius: size / 4).fill(theme.track).frame(width: size, height: size)
+        }
+    }
+}
+
 /// Shown on widgets that need Task Manager running (processes, sensors).
 struct NeedsAppNote: View {
     let text: String
     let theme: WidgetTheme
+    var symbol = "macwindow.badge.plus"
 
     var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: "macwindow.badge.plus").font(.system(size: 18)).foregroundStyle(theme.secondary)
+            Image(systemName: symbol).font(.system(size: 18)).foregroundStyle(theme.secondary)
             Text(text).font(.system(size: 11)).multilineTextAlignment(.center).foregroundStyle(theme.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -259,6 +303,8 @@ struct CPUWidgetView: View {
                     Text("Up \(WFmt.uptime(s.uptime))").font(.system(size: 10.5)).foregroundStyle(theme.secondary)
                         .frame(maxWidth: .infinity)
                 }
+            } else if family == .systemLarge {
+                large(s, theme)
             } else {
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -293,6 +339,49 @@ struct CPUWidgetView: View {
             }
         }
     }
+
+    private func large(_ s: WidgetSnapshot, _ theme: WidgetTheme) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Ring(fraction: s.cpu, color: theme.cpu, track: theme.track, lineWidth: 10)
+                    Text(WFmt.percent(s.cpu)).font(.system(size: 22, weight: .semibold)).monospacedDigit()
+                }
+                .frame(width: 92, height: 92)
+                VStack(alignment: .leading, spacing: 4) {
+                    WidgetHeader(symbol: "cpu", title: "CPU", tint: theme.cpu, theme: theme)
+                    Text(s.cpuName).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    if s.processCount > 0 {
+                        Text("\(s.processCount) processes · \(s.threadCount.formatted()) threads")
+                            .font(.system(size: 10.5)).foregroundStyle(theme.secondary).lineLimit(1)
+                    }
+                    Text("Up \(WFmt.uptime(s.uptime))").font(.system(size: 10.5)).foregroundStyle(theme.secondary)
+                }
+            }
+            if s.cpuHistory.count > 1 {
+                Sparkline(values: s.cpuHistory, maxValue: 1, color: theme.cpu).frame(minHeight: 50, maxHeight: .infinity)
+            } else {
+                Spacer(minLength: 0)
+            }
+            if !s.perCore.isEmpty {
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(Array(s.perCore.prefix(32).enumerated()), id: \.offset) { _, core in
+                        ZStack(alignment: .bottom) {
+                            RoundedRectangle(cornerRadius: 1.5).fill(theme.track)
+                            RoundedRectangle(cornerRadius: 1.5).fill(theme.cpu).frame(height: max(2, 26 * core))
+                        }
+                        .frame(height: 26)
+                    }
+                }
+            }
+            Divider().overlay(theme.track)
+            if entry.isLive && !s.topApps.isEmpty {
+                AppRows(apps: Array(s.topApps.prefix(4)), theme: theme, compact: true)
+            } else {
+                NeedsAppNote(text: "Open Task Manager to see which apps are busiest.", theme: theme)
+            }
+        }
+    }
 }
 
 // MARK: - Memory
@@ -319,6 +408,38 @@ struct MemoryWidgetView: View {
                     ring
                     Text("\(WFmt.gigabytes(s.memoryUsed)) of \(WFmt.gigabytes(s.memoryTotal))")
                         .font(.system(size: 10.5)).foregroundStyle(theme.secondary).frame(maxWidth: .infinity)
+                }
+            } else if family == .systemLarge {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 14) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            WidgetHeader(symbol: "memorychip", title: "Memory", tint: theme.memory, theme: theme)
+                            ring
+                        }
+                        .frame(width: 112)
+                        VStack(alignment: .leading, spacing: 5) {
+                            row("In use", "\(WFmt.gigabytes(s.memoryUsed)) of \(WFmt.gigabytes(s.memoryTotal))", theme)
+                            row("Compressed", WFmt.gigabytes(s.memoryCompressed), theme)
+                            row("Cached", WFmt.gigabytes(s.memoryCached), theme)
+                            if entry.isLive {
+                                row("Swap", WFmt.gigabytes(s.swapUsed), theme)
+                                row("Pressure", s.memoryPressure, theme)
+                            }
+                        }
+                    }
+                    .frame(height: 128)
+                    composition(s, theme)
+                    if s.memoryHistory.count > 1 {
+                        Sparkline(values: s.memoryHistory, maxValue: 1, color: theme.memory).frame(minHeight: 32, maxHeight: .infinity)
+                    } else {
+                        Spacer(minLength: 0)
+                    }
+                    Divider().overlay(theme.track)
+                    if entry.isLive, let apps = s.memoryApps, !apps.isEmpty {
+                        AppRows(apps: Array(apps.prefix(4)), theme: theme, compact: true)
+                    } else {
+                        NeedsAppNote(text: "Open Task Manager to see which apps use the most memory.", theme: theme)
+                    }
                 }
             } else {
                 HStack(spacing: 14) {
@@ -351,6 +472,25 @@ struct MemoryWidgetView: View {
             Text(value).monospacedDigit()
         }
         .font(.system(size: 11))
+    }
+
+    /// In use (apps and wired), compressed and cached, like the Performance page's composition bar.
+    private func composition(_ s: WidgetSnapshot, _ theme: WidgetTheme) -> some View {
+        let total = Double(max(s.memoryTotal, 1))
+        let compressed = Double(s.memoryCompressed) / total
+        let used = max(Double(s.memoryUsed) / total - compressed, 0)
+        let cached = min(Double(s.memoryCached) / total, max(1 - used - compressed, 0))
+        return GeometryReader { geometry in
+            HStack(spacing: 1.5) {
+                Rectangle().fill(theme.memory).frame(width: geometry.size.width * used)
+                Rectangle().fill(theme.memory.opacity(0.6)).frame(width: geometry.size.width * compressed)
+                Rectangle().fill(theme.memory.opacity(0.25)).frame(width: geometry.size.width * cached)
+                Spacer(minLength: 0)
+            }
+            .background(theme.track)
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+        }
+        .frame(height: 12)
     }
 }
 
@@ -446,11 +586,7 @@ struct AppRows: View {
         VStack(spacing: compact ? 3 : 4) {
             ForEach(Array(apps.enumerated()), id: \.offset) { _, app in
                 HStack(spacing: 6) {
-                    if let data = app.icon, let image = NSImage(data: data) {
-                        Image(nsImage: image).resizable().frame(width: 16, height: 16)
-                    } else {
-                        RoundedRectangle(cornerRadius: 4).fill(theme.track).frame(width: 16, height: 16)
-                    }
+                    AppIcon(data: app.icon, theme: theme)
                     Text(app.name).font(.system(size: 11.5)).lineLimit(1)
                     Spacer(minLength: 4)
                     Text(String(format: "%.1f%%", app.cpu))
@@ -520,17 +656,22 @@ struct TemperatureWidgetView: View {
                     Meter(fraction: (main.celsius - 20) / 90, color: theme.temperature(main.celsius), track: theme.track)
                     Text(fanText(s)).font(.system(size: 10.5)).foregroundStyle(theme.secondary)
                 } else {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 10) {
-                        ForEach(Array(s.temperatures.prefix(6).enumerated()), id: \.offset) { _, temp in
-                            VStack(alignment: .leading, spacing: 2) {
+                    let large = family == .systemLarge
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: large ? 16 : 10) {
+                        ForEach(Array(s.temperatures.prefix(large ? 12 : 6).enumerated()), id: \.offset) { _, temp in
+                            VStack(alignment: .leading, spacing: large ? 4 : 2) {
                                 HStack(spacing: 4) {
                                     Image(systemName: temp.symbol).font(.system(size: 10))
                                     Text(temp.name).font(.system(size: 10.5)).lineLimit(1)
                                 }
                                 .foregroundStyle(theme.secondary)
                                 Text(WFmt.temperature(temp.celsius, fahrenheit: s.fahrenheit))
-                                    .font(.system(size: 20, weight: .semibold)).monospacedDigit()
+                                    .font(.system(size: large ? 24 : 20, weight: .semibold)).monospacedDigit()
                                     .foregroundStyle(theme.temperature(temp.celsius))
+                                if large {
+                                    Meter(fraction: (temp.celsius - 20) / 90, color: theme.temperature(temp.celsius), track: theme.track)
+                                        .padding(.trailing, 10)
+                                }
                             }
                         }
                     }
@@ -581,6 +722,10 @@ struct NetworkWidgetView: View {
                         Sparkline(values: s.networkSendHistory, maxValue: scale, color: theme.network.opacity(0.6), filled: false)
                     }
                     .frame(maxHeight: family == .systemSmall ? 34 : .infinity)
+                    if family == .systemLarge {
+                        Text("Peak in the last minute: ↓ \(WFmt.rate(s.networkReceiveHistory.max() ?? 0))  ·  ↑ \(WFmt.rate(s.networkSendHistory.max() ?? 0))")
+                            .font(.system(size: 10.5)).foregroundStyle(theme.secondary).lineLimit(1)
+                    }
                 } else {
                     Spacer(minLength: 0)
                 }
@@ -607,22 +752,60 @@ struct NetworkWidgetView: View {
 
 struct StorageWidgetView: View {
     let entry: StatsEntry
+    @Environment(\.widgetFamily) private var systemFamily
+    @Environment(\.widgetFamilyOverride) private var familyOverride
+    private var family: WidgetFamily { familyOverride ?? systemFamily }
 
     var body: some View {
         let s = entry.snapshot
         WidgetShell(entry: entry, link: "performance/disk") { theme in
-            VStack(alignment: .leading, spacing: 6) {
-                WidgetHeader(symbol: "internaldrive", title: s.diskName, tint: theme.disk, theme: theme)
-                ZStack {
-                    Ring(fraction: s.diskUsedFraction, color: theme.disk, track: theme.track, lineWidth: 10)
-                    VStack(spacing: 0) {
-                        Text(WFmt.storage(s.diskFree)).font(.system(size: 17, weight: .semibold)).monospacedDigit()
-                        Text("free").font(.system(size: 9.5)).foregroundStyle(theme.secondary)
+            let ring = ZStack {
+                Ring(fraction: s.diskUsedFraction, color: theme.disk, track: theme.track, lineWidth: 10)
+                VStack(spacing: 0) {
+                    Text(WFmt.storage(s.diskFree)).font(.system(size: 17, weight: .semibold)).monospacedDigit()
+                    Text("free").font(.system(size: 9.5)).foregroundStyle(theme.secondary)
+                }
+            }
+            if family == .systemMedium {
+                HStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        WidgetHeader(symbol: "internaldrive", title: s.diskName, tint: theme.disk, theme: theme)
+                        ring
+                    }
+                    .frame(width: 112)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(WFmt.storage(s.diskTotal - min(s.diskFree, s.diskTotal))) used of \(WFmt.storage(s.diskTotal))")
+                            .font(.system(size: 11, weight: .medium)).lineLimit(1)
+                        HStack(alignment: .top, spacing: 14) {
+                            rate("arrow.down.doc", "Read", s.diskRead, theme)
+                            rate("arrow.up.doc", "Write", s.diskWrite, theme)
+                        }
+                        if let read = s.diskReadHistory, let write = s.diskWriteHistory, read.count > 1 {
+                            let scale = max((read + write).max() ?? 0, 1_048_576)
+                            ZStack {
+                                Sparkline(values: read, maxValue: scale, color: theme.disk)
+                                Sparkline(values: write, maxValue: scale, color: theme.disk.opacity(0.6), filled: false)
+                            }
+                        } else {
+                            Spacer(minLength: 0)
+                        }
                     }
                 }
-                Text("of \(WFmt.storage(s.diskTotal))").font(.system(size: 10.5)).foregroundStyle(theme.secondary)
-                    .frame(maxWidth: .infinity)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    WidgetHeader(symbol: "internaldrive", title: s.diskName, tint: theme.disk, theme: theme)
+                    ring
+                    Text("of \(WFmt.storage(s.diskTotal))").font(.system(size: 10.5)).foregroundStyle(theme.secondary)
+                        .frame(maxWidth: .infinity)
+                }
             }
+        }
+    }
+
+    private func rate(_ symbol: String, _ label: String, _ value: Double, _ theme: WidgetTheme) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Label(label, systemImage: symbol).font(.system(size: 10.5)).foregroundStyle(theme.secondary).lineLimit(1)
+            Text(WFmt.rate(value)).font(.system(size: 15, weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
         }
     }
 }

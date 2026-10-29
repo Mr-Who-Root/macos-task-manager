@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         Monitor.shared.appHistory.save()
+        Monitor.shared.batteryLog.save()
     }
 }
 

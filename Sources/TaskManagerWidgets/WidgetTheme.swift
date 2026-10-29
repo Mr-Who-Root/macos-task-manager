@@ -1,4 +1,5 @@
 import SwiftUI
+import TaskManagerShared
 
 /// Widget colours that follow the design chosen in Task Manager's Settings.
 struct WidgetTheme {
@@ -122,6 +123,44 @@ struct WidgetTheme {
         case "macOS": return .teal
         default: return cpu
         }
+    }
+
+    var power: Color {
+        switch design {
+        case "midnight": return rgb(253, 224, 71)
+        case "terminal": return rgb(255, 208, 0)
+        case "macOS": return .yellow
+        default: return dark ? rgb(255, 204, 77) : rgb(194, 140, 0)
+        }
+    }
+
+    /// Plugged in, healthy, cool.
+    var good: Color {
+        switch design {
+        case "terminal": return rgb(51, 255, 102)
+        case "midnight": return rgb(52, 211, 153)
+        case "macOS": return .green
+        default: return dark ? rgb(108, 203, 95) : rgb(16, 124, 16)
+        }
+    }
+
+    var warning: Color { dark ? rgb(255, 153, 77) : rgb(217, 97, 13) }
+    var critical: Color { dark ? rgb(255, 110, 100) : rgb(196, 43, 28) }
+
+    /// Time on battery in the 24-hour bars, set against `good` (matches the Battery page).
+    var onBattery: Color {
+        switch design {
+        case "midnight": return memory
+        case "terminal": return secondary
+        default: return cpu
+        }
+    }
+
+    func charge(_ battery: WidgetSnapshot.Battery) -> Color {
+        if battery.pluggedIn { return good }
+        if battery.charge <= 0.1 { return critical }
+        if battery.charge <= 0.2 { return warning }
+        return onBattery
     }
 
     /// Heat-map cell colour, matching the Processes page.

@@ -104,7 +104,7 @@ enum CPUGraphMode: String {
 
 /// Columns of the Processes tab (Users reuses a subset).
 enum ProcColumn: String, CaseIterable, Identifiable {
-    case name, status, publisher, pid, processName, user, threads, architecture, cpu, memory, disk, network
+    case name, status, publisher, pid, processName, user, threads, architecture, cpu, memory, disk, network, power, powerTrend
 
     var id: String { rawValue }
 
@@ -122,6 +122,8 @@ enum ProcColumn: String, CaseIterable, Identifiable {
         case .memory: return "Memory"
         case .disk: return "Disk"
         case .network: return "Network"
+        case .power: return "Power usage"
+        case .powerTrend: return "Power usage trend"
         }
     }
 
@@ -139,12 +141,14 @@ enum ProcColumn: String, CaseIterable, Identifiable {
         case .memory: return 100
         case .disk: return 90
         case .network: return 90
+        case .power: return 110
+        case .powerTrend: return 130
         }
     }
 
     var isNumeric: Bool { [.pid, .threads, .cpu, .memory, .disk, .network].contains(self) }
     var isOptional: Bool { ![.name, .cpu, .memory, .disk, .network].contains(self) }
-    var sortsDescendingFirst: Bool { isNumeric && self != .pid }
+    var sortsDescendingFirst: Bool { (isNumeric && self != .pid) || self == .power || self == .powerTrend }
 
     static let defaultVisible: Set<ProcColumn> = [.name, .status, .cpu, .memory, .disk, .network]
 }

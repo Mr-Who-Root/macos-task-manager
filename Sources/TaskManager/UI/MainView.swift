@@ -139,6 +139,7 @@ struct PageContainer: View {
         case .processes: ProcessesPage()
         case .performance: PerformancePage()
         case .temperatures: TemperaturesPage()
+        case .battery: BatteryPage()
         case .appHistory: AppHistoryPage()
         case .startup: StartupAppsPage()
         case .users: UsersPage()
@@ -345,7 +346,7 @@ struct NavigationSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             header("Monitor")
-            ForEach([Page.processes, .performance, .temperatures, .appHistory]) { row($0) }
+            ForEach([Page.processes, .performance, .temperatures, .battery, .appHistory]) { row($0) }
             header("System").padding(.top, 10)
             ForEach([Page.startup, .users, .details, .services]) { row($0) }
             Spacer(minLength: 8)

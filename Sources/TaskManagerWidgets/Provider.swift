@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import IOKit.ps
 import TaskManagerShared
 import WidgetKit
 
@@ -36,6 +37,15 @@ struct StatsProvider: TimelineProvider {
             snapshot.design = stale.design
             snapshot.accent = stale.accent
             snapshot.fahrenheit = stale.fahrenheit
+            // Health and the 24-hour history change slowly, so keep the app's last figures.
+            if var battery = snapshot.battery, let old = stale.battery {
+                battery.health = old.health
+                battery.condition = old.condition
+                battery.cycleCount = old.cycleCount
+                battery.designCycleCount = old.designCycleCount
+                battery.levels = old.levels.filter { now.timeIntervalSince($0.time) < 24 * 3600 }
+                snapshot.battery = battery
+            }
         }
         return StatsEntry(date: now, snapshot: snapshot, isLive: false)
     }
@@ -62,7 +72,7 @@ enum FallbackSampler {
         let total = hasDisk ? UInt64(fs.f_blocks) * UInt64(fs.f_bsize) : 0
         let free = hasDisk ? UInt64(fs.f_bavail) * UInt64(fs.f_bsize) : 0
 
-        return WidgetSnapshot(
+        var snapshot = WidgetSnapshot(
             date: Date(), design: "windows11", accent: "automatic", fahrenheit: false,
             cpu: cpu, cpuHistory: [], perCore: [], cpuName: sysctlString("machdep.cpu.brand_string") ?? "CPU",
             processCount: 0, threadCount: 0, uptime: uptime(),
@@ -75,6 +85,37 @@ enum FallbackSampler {
             networkSendHistory: [], networkReceiveHistory: [],
             topApps: [], temperatures: [], fans: [], thermalState: ""
         )
+        snapshot.battery = battery()
+        return snapshot
+    }
+
+    /// IOPowerSources works inside the widget's sandbox, so charge and time left stay live without Task Manager.
+    static func battery() -> WidgetSnapshot.Battery? {
+        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef] else { return nil }
+        for source in list {
+            guard let d = IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue() as? [String: Any],
+                  d[kIOPSTypeKey] as? String == kIOPSInternalBatteryType else { continue }
+            func int(_ key: String) -> Int? { (d[key] as? NSNumber)?.intValue }
+            var battery = WidgetSnapshot.Battery()
+            let maximum = Double(int(kIOPSMaxCapacityKey) ?? 100)
+            battery.charge = maximum > 0 ? min(max(Double(int(kIOPSCurrentCapacityKey) ?? 0) / maximum, 0), 1) : 0
+            battery.isCharging = d[kIOPSIsChargingKey] as? Bool ?? false
+            battery.pluggedIn = d[kIOPSPowerSourceStateKey] as? String == kIOPSACPowerValue
+            battery.status = WidgetSnapshot.Battery.status(
+                charging: battery.isCharging, pluggedIn: battery.pluggedIn,
+                fullyCharged: d[kIOPSIsChargedKey] as? Bool ?? false, charge: battery.charge
+            )
+            if let minutes = int(kIOPSTimeToEmptyKey), minutes > 0, minutes < 65_535, !battery.pluggedIn { battery.timeToEmpty = minutes }
+            if let minutes = int(kIOPSTimeToFullChargeKey), minutes > 0, minutes < 65_535, battery.isCharging { battery.timeToFull = minutes }
+            battery.lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled || (d["LPM Active"] as? NSNumber)?.boolValue == true
+            if battery.pluggedIn, let adapter = IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any] {
+                battery.adapterWatts = (adapter[kIOPSPowerAdapterWattsKey] as? NSNumber)?.doubleValue
+                battery.adapterName = (adapter["Name"] as? String)?.trimmingCharacters(in: .whitespaces)
+            }
+            return battery
+        }
+        return nil
     }
 
     private static func cpuTicks() -> (busy: UInt64, total: UInt64)? {
@@ -153,7 +194,7 @@ extension WidgetSnapshot {
             let fast: Double = 0.05 * cos(x / 2)
             return 0.18 + slow + fast
         }
-        return WidgetSnapshot(
+        var sample = WidgetSnapshot(
             date: Date(), design: "windows11", accent: "automatic", fahrenheit: false,
             cpu: 0.23, cpuHistory: wave, perCore: [0.42, 0.31, 0.25, 0.18, 0.12, 0.09, 0.3, 0.22, 0.05, 0.04, 0.08, 0.03],
             cpuName: "Apple silicon", processCount: 612, threadCount: 2_940, uptime: 3 * 86_400 + 4 * 3_600,
@@ -174,8 +215,66 @@ extension WidgetSnapshot {
             temperatures: [
                 .init(name: "CPU", symbol: "cpu", celsius: 52), .init(name: "GPU", symbol: "cube.transparent", celsius: 46),
                 .init(name: "SSD", symbol: "internaldrive", celsius: 35), .init(name: "Battery", symbol: "battery.75percent", celsius: 31),
+                .init(name: "SoC", symbol: "square.grid.3x3.square", celsius: 48), .init(name: "Memory", symbol: "memorychip", celsius: 41),
+                .init(name: "Wi-Fi", symbol: "wifi", celsius: 38), .init(name: "Airflow", symbol: "wind", celsius: 33),
+                .init(name: "Power", symbol: "bolt", celsius: 44),
             ],
             fans: [0], thermalState: "Nominal"
         )
+        var battery = WidgetSnapshot.Battery()
+        battery.charge = 0.72
+        battery.status = "On battery power"
+        battery.timeToEmpty = 312
+        battery.health = 0.96
+        battery.condition = "Normal"
+        battery.cycleCount = 148
+        battery.designCycleCount = 1_000
+        battery.temperature = 31
+        battery.powerDraw = 7.4
+        battery.powerHistory = wave.map { (v: Double) -> Double in 5 + v * 12 }
+        battery.batteryPower = -7.4
+        // Down from full overnight on battery, then charging, then on battery again.
+        let end = Date(timeIntervalSinceReferenceDate: (Date().timeIntervalSinceReferenceDate / 900).rounded(.down) * 900)
+        battery.levels = (0..<96).compactMap { (i: Int) -> WidgetSnapshot.Level? in
+            guard !(40..<52).contains(i) else { return nil }
+            let charging = (24..<40).contains(i)
+            let step = Double(i)
+            var charge: Double
+            if i < 24 {
+                charge = 1 - step * 0.022
+            } else if charging {
+                charge = 0.47 + (step - 24) * 0.028
+            } else {
+                charge = 0.92 - (step - 52) * 0.0045
+            }
+            let time = end.addingTimeInterval((step - 95) * 900)
+            return WidgetSnapshot.Level(time: time, charge: min(charge, 1), pluggedIn: charging)
+        }
+        sample.battery = battery
+        sample.powerApps = [
+            .init(name: "Safari", watts: 1.42, usage: "Moderate", heat: 0.5, keepsAwake: true, icon: nil),
+            .init(name: "Xcode", watts: 0.86, usage: "Moderate", heat: 0.5, keepsAwake: false, icon: nil),
+            .init(name: "Music", watts: 0.31, usage: "Low", heat: 0.25, keepsAwake: true, icon: nil),
+            .init(name: "Messages", watts: 0.12, usage: "Low", heat: 0.25, keepsAwake: false, icon: nil),
+            .init(name: "Photos", watts: 0.09, usage: "Very low", heat: 0, keepsAwake: false, icon: nil),
+            .init(name: "Mail", watts: 0.04, usage: "Very low", heat: 0, keepsAwake: false, icon: nil),
+            .init(name: "Notes", watts: 0.03, usage: "Very low", heat: 0, keepsAwake: false, icon: nil),
+            .init(name: "Calendar", watts: 0.02, usage: "Very low", heat: 0, keepsAwake: false, icon: nil),
+            .init(name: "Finder", watts: 0.02, usage: "Very low", heat: 0, keepsAwake: false, icon: nil),
+        ]
+        sample.sleepBlockers = [
+            .init(name: "Safari", reason: "Video Wake Lock", keepsDisplayOn: true, icon: nil),
+            .init(name: "Music", reason: "Playing audio", keepsDisplayOn: false, icon: nil),
+        ]
+        sample.memoryApps = [
+            .init(name: "Xcode", cpu: 4.1, memory: 3_912_000_000, icon: nil),
+            .init(name: "Safari", cpu: 6.4, memory: 1_284_000_000, icon: nil),
+            .init(name: "Mail", cpu: 0.2, memory: 318_000_000, icon: nil),
+            .init(name: "Music", cpu: 1.2, memory: 212_000_000, icon: nil),
+        ]
+        sample.diskReadHistory = wave.map { (v: Double) -> Double in v * 6_000_000 }
+        sample.diskWriteHistory = wave.reversed().map { (v: Double) -> Double in v * 2_500_000 }
+        sample.gpuCores = 16
+        return sample
     }
 }
