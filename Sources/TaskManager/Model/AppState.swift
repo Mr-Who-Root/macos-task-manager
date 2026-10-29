@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable {
-    case processes, performance, temperatures, battery, appHistory, startup, users, details, services, settings
+    case processes, performance, timeline, temperatures, battery, appHistory, privacy, startup, users, details, services, settings
 
     var id: String { rawValue }
 
@@ -11,9 +11,11 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .processes: return "Processes"
         case .performance: return "Performance"
+        case .timeline: return "Timeline"
         case .temperatures: return "Temperatures"
         case .battery: return "Battery"
         case .appHistory: return "App history"
+        case .privacy: return "Privacy"
         case .startup: return "Startup apps"
         case .users: return "Users"
         case .details: return "Details"
@@ -26,9 +28,11 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .processes: return "square.grid.2x2"
         case .performance: return "waveform.path.ecg"
+        case .timeline: return "chart.xyaxis.line"
         case .temperatures: return "thermometer.medium"
         case .battery: return "battery.75percent"
         case .appHistory: return "clock.arrow.circlepath"
+        case .privacy: return "hand.raised"
         case .startup: return "gauge.with.dots.needle.33percent"
         case .users: return "person.2"
         case .details: return "list.bullet"
@@ -102,6 +106,7 @@ final class AppState {
     }
     var searchText = ""
     var showRunTask = false
+    var showDiagnosis = false
     var properties: PropertiesTarget?
     var alert: AppAlert?
     var detailsFocusPID: Int32?

@@ -54,6 +54,8 @@ struct ProcNode: Identifiable, Sendable {
     var cpuDelta: Double = 0
     var diskDelta: Double = 0
     var netDelta: Double = 0
+    var netReceivedDelta: Double = 0
+    var netSentDelta: Double = 0
     var energyDelta: Double = 0
 
     var main: ProcessSample? { members.first { $0.pid == mainPID } ?? members.first }
@@ -61,6 +63,7 @@ struct ProcNode: Identifiable, Sendable {
     var path: String? { bundlePath ?? main?.path }
     var pids: [Int32] { members.map(\.pid) }
     var isSuspended: Bool { !members.isEmpty && members.allSatisfy(\.isSuspended) }
+    var notResponding: Bool { members.contains(where: \.notResponding) }
 
     var efficiency: EfficiencyState {
         let count = members.filter(\.efficiencyMode).count
@@ -69,6 +72,7 @@ struct ProcNode: Identifiable, Sendable {
     }
 
     var statusText: String {
+        if notResponding { return "Not responding" }
         if isSuspended { return "Suspended" }
         switch efficiency {
         case .on:
@@ -84,7 +88,7 @@ struct ProcNode: Identifiable, Sendable {
     mutating func recalculate() {
         cpu = 0; memory = 0; diskRate = 0; netRate = 0; threads = 0
         power = 0; powerTrend = 0; cpuTrend = 0; idleWakeups = 0
-        cpuDelta = 0; diskDelta = 0; netDelta = 0; energyDelta = 0
+        cpuDelta = 0; diskDelta = 0; netDelta = 0; netReceivedDelta = 0; netSentDelta = 0; energyDelta = 0
         for m in members {
             cpu += m.cpu
             memory += m.memory
@@ -98,6 +102,8 @@ struct ProcNode: Identifiable, Sendable {
             cpuDelta += m.cpuDelta
             diskDelta += m.diskDelta
             netDelta += m.netDelta
+            netReceivedDelta += m.netReceivedDelta
+            netSentDelta += m.netSentDelta
             energyDelta += m.energyDelta
         }
         cpu = min(cpu, 100)

@@ -349,15 +349,18 @@ private struct HeatRowView: View {
     }
 
     private var statusCell: some View {
-        HStack(spacing: 5) {
-            if row.suspended {
+        let hung = row.statusText == "Not responding"
+        return HStack(spacing: 5) {
+            if hung {
+                Image(systemName: "exclamationmark.octagon.fill").foregroundStyle(ResourceColor.thermal)
+            } else if row.suspended {
                 Image(systemName: "pause.circle").foregroundStyle(Fluent.textSecondary)
             } else if row.efficiency != .off {
                 Image(systemName: row.efficiency == .on ? "leaf.fill" : "leaf")
                     .foregroundStyle(Fluent.efficiency)
                     .help(row.efficiency == .on ? "Efficiency mode" : "Some processes are in efficiency mode")
             }
-            Text(row.statusText).foregroundStyle(Fluent.textSecondary).truncationMode(.tail)
+            Text(row.statusText).foregroundStyle(hung ? ResourceColor.thermal : Fluent.textSecondary).truncationMode(.tail)
         }
         .font(.system(size: 12))
         .padding(.horizontal, 9)

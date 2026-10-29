@@ -41,7 +41,11 @@ struct ProcessSample: Identifiable, Hashable, Sendable {
     var cpuDelta: Double = 0
     var diskDelta: Double = 0
     var netDelta: Double = 0
+    var netReceivedDelta: Double = 0
+    var netSentDelta: Double = 0
     var energyDelta: Double = 0      // joules
+    /// The app has stopped handling events (see HangDetector).
+    var notResponding = false
 
     var id: Int32 { pid }
     var diskRate: Double { diskReadRate + diskWriteRate }
@@ -49,6 +53,7 @@ struct ProcessSample: Identifiable, Hashable, Sendable {
 
     /// Text for the Processes tab "Status" column (blank when nothing notable).
     var statusText: String {
+        if notResponding { return "Not responding" }
         switch state {
         case .stopped: return "Suspended"
         case .zombie: return "Not responding"
@@ -58,6 +63,7 @@ struct ProcessSample: Identifiable, Hashable, Sendable {
 
     /// Text for the Details tab "Status" column.
     var detailStatus: String {
+        if notResponding { return "Not responding" }
         switch state {
         case .stopped: return "Suspended"
         case .zombie: return "Zombie"
@@ -94,7 +100,8 @@ final class ProcessSampler {
         let cpuNs: UInt64
         let diskRead: UInt64
         let diskWrite: UInt64
-        let netBytes: UInt64
+        let netReceived: UInt64
+        let netSent: UInt64
         let energyNJ: UInt64
         let idleWakeups: UInt64
         let powerTrend: Double
@@ -219,7 +226,7 @@ final class ProcessSampler {
             let pid = samples[i].pid
             let cpu = cpuNs[pid] ?? 0
             let io = disk[pid] ?? (0, 0)
-            let net = netBytes[pid] ?? 0
+            let net = netBytes[pid] ?? (0, 0)
             let power = energy[pid] ?? (0, 0)
             samples[i].cpuTime = Double(cpu) / 1_000_000_000
             var trendSpan = 0.0
@@ -229,14 +236,17 @@ final class ProcessSampler {
                 let dRead = io.read >= old.diskRead ? Double(io.read - old.diskRead) : 0
                 let dWrite = io.write >= old.diskWrite ? Double(io.write - old.diskWrite) : 0
                 // nettop reports bytes of live flows; when flows close the total can drop.
-                let dNet = net >= old.netBytes ? Double(net - old.netBytes) : Double(net)
+                let dReceived = net.received >= old.netReceived ? Double(net.received - old.netReceived) : Double(net.received)
+                let dSent = net.sent >= old.netSent ? Double(net.sent - old.netSent) : Double(net.sent)
                 samples[i].cpu = min(100, dCPU / elapsed / cpuCount * 100)
                 samples[i].cpuDelta = dCPU
                 samples[i].diskReadRate = dRead / elapsed
                 samples[i].diskWriteRate = dWrite / elapsed
                 samples[i].diskDelta = dRead + dWrite
-                samples[i].netRate = dNet / elapsed
-                samples[i].netDelta = dNet
+                samples[i].netRate = (dReceived + dSent) / elapsed
+                samples[i].netDelta = dReceived + dSent
+                samples[i].netReceivedDelta = dReceived
+                samples[i].netSentDelta = dSent
                 let dEnergy = power.nanojoules >= old.energyNJ ? Double(power.nanojoules - old.energyNJ) / 1_000_000_000 : 0
                 samples[i].power = dEnergy / elapsed
                 samples[i].energyDelta = dEnergy
@@ -248,7 +258,8 @@ final class ProcessSampler {
                 samples[i].cpuTrend = old.cpuTrend + (samples[i].cpu - old.cpuTrend) * weight
             }
             next[pid] = Previous(
-                start: samples[i].startTime, cpuNs: cpu, diskRead: io.read, diskWrite: io.write, netBytes: net,
+                start: samples[i].startTime, cpuNs: cpu, diskRead: io.read, diskWrite: io.write,
+                netReceived: net.received, netSent: net.sent,
                 energyNJ: power.nanojoules, idleWakeups: power.idleWakeups,
                 powerTrend: samples[i].powerTrend, cpuTrend: samples[i].cpuTrend, trendSpan: trendSpan
             )
@@ -353,10 +364,13 @@ final class ProcessSampler {
         return counts
     }
 
-    /// Bytes in + out per process for currently open flows, via nettop.
-    private static func networkBytesByPID() -> [Int32: UInt64] {
-        let output = Shell.run("/usr/bin/nettop", ["-P", "-L", "1", "-x", "-n", "-J", "bytes_in,bytes_out"]).output
-        var result: [Int32: UInt64] = [:]
+    /// Bytes received and sent per process for currently open flows, via nettop.
+    private static func networkBytesByPID() -> [Int32: (received: UInt64, sent: UInt64)] {
+        parseNettop(Shell.run("/usr/bin/nettop", ["-P", "-L", "1", "-x", "-n", "-J", "bytes_in,bytes_out"]).output)
+    }
+
+    static func parseNettop(_ output: String) -> [Int32: (received: UInt64, sent: UInt64)] {
+        var result: [Int32: (received: UInt64, sent: UInt64)] = [:]
         for line in output.split(separator: "\n").dropFirst() {
             // "name.pid,bytes_in,bytes_out," — the name itself may contain dots or commas.
             let fields = line.split(separator: ",", omittingEmptySubsequences: false)
@@ -364,7 +378,8 @@ final class ProcessSampler {
             let n = fields.count
             let label = fields[0..<(n - 3)].joined(separator: ",")
             guard let dot = label.lastIndex(of: "."), let pid = Int32(label[label.index(after: dot)...]) else { continue }
-            result[pid, default: 0] += (UInt64(fields[n - 3]) ?? 0) + (UInt64(fields[n - 2]) ?? 0)
+            let old = result[pid] ?? (0, 0)
+            result[pid] = (old.received + (UInt64(fields[n - 3]) ?? 0), old.sent + (UInt64(fields[n - 2]) ?? 0))
         }
         return result
     }

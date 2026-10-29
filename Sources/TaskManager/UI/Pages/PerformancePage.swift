@@ -10,6 +10,7 @@ struct PerformancePage: View {
         let item = effectiveItem
         VStack(spacing: 0) {
             PageHeader(title: "Performance") {
+                CommandButton(title: "Why is my Mac slow?", systemImage: "stethoscope") { state.showDiagnosis = true }
                 CommandButton(title: "Run new task", systemImage: "macwindow.badge.plus") { state.showRunTask = true }
                 CommandBarMenu(title: "View", systemImage: "ellipsis") {
                     if item == .cpu {

@@ -5,6 +5,7 @@ import SwiftUI
 /// Debug-build helpers for exercising the UI without Accessibility permission.
 ///
 ///   TM_DEBUG_CLICKS="238,263;238,300"   window points from the top-left, clicked in order
+///   TM_DEBUG_CLICKS="80,191,90;80,347"   an optional third value waits that many seconds before the click
 ///   TM_DEBUG_DELAY=4                     seconds to wait before the first click
 @MainActor
 enum DebugHooks {
@@ -31,17 +32,19 @@ enum DebugHooks {
         }
         guard let spec = environment["TM_DEBUG_CLICKS"] else { return }
         let delay = Double(environment["TM_DEBUG_DELAY"] ?? "") ?? 4
-        let points = spec.split(separator: ";").compactMap { pair -> CGPoint? in
-            let parts = pair.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-            return parts.count == 2 ? CGPoint(x: parts[0], y: parts[1]) : nil
+        let steps = spec.split(separator: ";").compactMap { step -> (point: CGPoint, wait: Double)? in
+            let parts = step.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            guard parts.count >= 2 else { return nil }
+            return (CGPoint(x: parts[0], y: parts[1]), parts.count > 2 ? parts[2] : 0)
         }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(delay))
             NSApp.activate()
             AppState.shared.window?.makeKeyAndOrderFront(nil)
             try? await Task.sleep(for: .seconds(0.5))
-            for point in points {
-                await click(at: point)
+            for step in steps {
+                if step.wait > 0 { try? await Task.sleep(for: .seconds(step.wait)) }
+                await click(at: step.point)
                 try? await Task.sleep(for: .seconds(1.2))
             }
         }
