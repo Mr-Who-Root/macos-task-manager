@@ -30,6 +30,78 @@ public struct WidgetSnapshot: Codable, Sendable {
         }
     }
 
+    public struct Battery: Codable, Sendable {
+        public var charge: Double = 0                 // 0...1
+        public var isCharging = false
+        public var pluggedIn = false
+        public var status = ""                        // "Charging", "On battery power", …
+        public var timeToEmpty: Int?                  // minutes
+        public var timeToFull: Int?
+        public var health: Double?                    // 0...1
+        public var condition: String?
+        public var cycleCount: Int?
+        public var designCycleCount: Int?
+        public var temperature: Double?               // °C
+        /// Whole-Mac power draw, in watts, and its recent history.
+        public var powerDraw: Double?
+        public var powerHistory: [Double] = []
+        /// Watts into (+) or out of (−) the battery.
+        public var batteryPower: Double?
+        public var lowPowerMode = false
+        public var adapterName: String?
+        public var adapterWatts: Double?
+        /// The level at the end of each 15 minutes over the last 24 hours.
+        public var levels: [Level] = []
+
+        public init() {}
+    }
+
+    public struct Level: Codable, Sendable {
+        public var time: Date
+        public var charge: Double                     // 0...1
+        public var pluggedIn: Bool
+
+        public init(time: Date, charge: Double, pluggedIn: Bool) {
+            self.time = time
+            self.charge = charge
+            self.pluggedIn = pluggedIn
+        }
+    }
+
+    /// An app on the battery usage list.
+    public struct PowerApp: Codable, Sendable {
+        public var name: String
+        public var watts: Double?                     // nil where macOS doesn't account energy per app
+        public var usage: String                      // "Very low" … "Very high"
+        public var heat: Double                       // 0...1
+        public var keepsAwake: Bool
+        public var icon: Data?
+
+        public init(name: String, watts: Double?, usage: String, heat: Double, keepsAwake: Bool, icon: Data?) {
+            self.name = name
+            self.watts = watts
+            self.usage = usage
+            self.heat = heat
+            self.keepsAwake = keepsAwake
+            self.icon = icon
+        }
+    }
+
+    /// An app keeping the Mac (or its display) awake.
+    public struct SleepBlocker: Codable, Sendable {
+        public var name: String
+        public var reason: String
+        public var keepsDisplayOn: Bool
+        public var icon: Data?
+
+        public init(name: String, reason: String, keepsDisplayOn: Bool, icon: Data?) {
+            self.name = name
+            self.reason = reason
+            self.keepsDisplayOn = keepsDisplayOn
+            self.icon = icon
+        }
+    }
+
     public var date: Date
     public var design: String
     public var accent: String
@@ -71,6 +143,15 @@ public struct WidgetSnapshot: Codable, Sendable {
     public var fans: [Double]             // RPM
     public var thermalState: String
 
+    // Added in 1.2. Optional so snapshots from earlier versions still decode.
+    public var battery: Battery?
+    public var powerApps: [PowerApp]?
+    public var sleepBlockers: [SleepBlocker]?
+    public var memoryApps: [App]?
+    public var diskReadHistory: [Double]?
+    public var diskWriteHistory: [Double]?
+    public var gpuCores: Int?
+
     public init(
         date: Date, design: String, accent: String, fahrenheit: Bool,
         cpu: Double, cpuHistory: [Double], perCore: [Double], cpuName: String, processCount: Int, threadCount: Int, uptime: TimeInterval,
@@ -98,6 +179,30 @@ public struct WidgetSnapshot: Codable, Sendable {
 
     /// True when the snapshot came from a running Task Manager (rather than the widget's own fallback).
     public var hasLiveDetail: Bool { !topApps.isEmpty || !temperatures.isEmpty }
+}
+
+extension WidgetSnapshot.Battery {
+    /// "Charging", "On battery power", "Fully charged" or "Plugged in, not charging".
+    public static func status(charging: Bool, pluggedIn: Bool, fullyCharged: Bool, charge: Double) -> String {
+        if charging { return "Charging" }
+        if !pluggedIn { return "On battery power" }
+        if fullyCharged || charge >= 0.995 { return "Fully charged" }
+        return "Plugged in, not charging"
+    }
+
+    /// SF Symbol for the charge level.
+    public static func symbol(charge: Double, charging: Bool) -> String {
+        if charging { return "battery.100percent.bolt" }
+        switch charge {
+        case ..<0.1: return "battery.0percent"
+        case ..<0.38: return "battery.25percent"
+        case ..<0.63: return "battery.50percent"
+        case ..<0.88: return "battery.75percent"
+        default: return "battery.100percent"
+        }
+    }
+
+    public var symbol: String { Self.symbol(charge: charge, charging: isCharging) }
 }
 
 public enum WidgetSnapshotStore {

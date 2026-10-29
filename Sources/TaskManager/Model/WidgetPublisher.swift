@@ -53,7 +53,7 @@ final class WidgetPublisher {
             }
             return total
         }
-        return WidgetSnapshot(
+        var snapshot = WidgetSnapshot(
             date: Date(), design: DesignStore.shared.design.rawValue, accent: DesignStore.shared.accent.rawValue,
             fahrenheit: settings.useFahrenheit,
             cpu: s.cpu.total, cpuHistory: monitor.cpuHistory.values, perCore: s.cpu.perCore, cpuName: hw.cpuName,
@@ -72,6 +72,81 @@ final class WidgetPublisher {
             networkReceiveHistory: sum(monitor.netReceiveHistory).map { $0 / 8 },
             topApps: Array(topApps), temperatures: cpuFirst, fans: s.sensors.fans.map(\.rpm), thermalState: s.sensors.thermalStateText
         )
+        snapshot.battery = battery(monitor)
+        snapshot.powerApps = powerApps(monitor)
+        snapshot.sleepBlockers = sleepBlockers(monitor)
+        snapshot.memoryApps = monitor.nodes.sorted { $0.memory > $1.memory }.prefix(6).map {
+            WidgetSnapshot.App(name: $0.name, cpu: $0.cpu, memory: $0.memory, icon: icon(for: $0.iconPath))
+        }
+        snapshot.diskReadHistory = sum(monitor.diskReadHistory)
+        snapshot.diskWriteHistory = sum(monitor.diskWriteHistory)
+        snapshot.gpuCores = s.gpu?.cores
+        return snapshot
+    }
+
+    private func battery(_ monitor: Monitor) -> WidgetSnapshot.Battery? {
+        let b = monitor.system.battery
+        guard b.isPresent else { return nil }
+        var battery = WidgetSnapshot.Battery()
+        battery.charge = b.charge
+        battery.isCharging = b.isCharging
+        battery.pluggedIn = b.externalConnected
+        battery.status = b.statusText
+        battery.timeToEmpty = b.timeToEmpty
+        battery.timeToFull = b.timeToFull
+        battery.health = b.health
+        battery.condition = b.condition
+        battery.cycleCount = b.cycleCount
+        battery.designCycleCount = b.designCycleCount
+        battery.temperature = monitor.batteryTemperature
+        battery.powerDraw = b.powerDraw
+        battery.powerHistory = monitor.powerDrawHistory.values
+        battery.batteryPower = b.batteryPower
+        battery.lowPowerMode = b.lowPowerMode
+        battery.adapterName = b.adapter?.name
+        battery.adapterWatts = b.adapter?.watts
+        let start = BatteryLog.chartEnd.addingTimeInterval(-BatteryLog.span)
+        battery.levels = monitor.batteryLog.buckets(since: start).map {
+            WidgetSnapshot.Level(time: $0.start, charge: $0.charge / 100, pluggedIn: $0.pluggedIn)
+        }
+        return battery
+    }
+
+    /// The apps using the most power, as on the Battery page.
+    private func powerApps(_ monitor: Monitor) -> [WidgetSnapshot.PowerApp] {
+        let awake = Set(monitor.system.battery.assertions.map(\.pid))
+        return monitor.nodes.sorted { ($0.power, $0.cpu) > ($1.power, $1.cpu) }.prefix(9).map { node in
+            let restricted = node.main?.restricted ?? false
+            let usage = ProcessRows.powerUsage(watts: node.power, cpu: node.cpu, restricted: restricted)
+            return WidgetSnapshot.PowerApp(
+                name: node.name,
+                watts: monitor.energyAvailable && !restricted ? node.power : nil,
+                usage: usage.title,
+                heat: usage.heat,
+                keepsAwake: node.pids.contains(where: awake.contains),
+                icon: icon(for: node.iconPath)
+            )
+        }
+    }
+
+    /// One row per app holding sleep assertions, oldest first.
+    private func sleepBlockers(_ monitor: Monitor) -> [WidgetSnapshot.SleepBlocker] {
+        var order: [Int32] = []
+        var byPID: [Int32: [SleepAssertion]] = [:]
+        for assertion in monitor.system.battery.assertions {
+            if byPID[assertion.pid] == nil { order.append(assertion.pid) }
+            byPID[assertion.pid, default: []].append(assertion)
+        }
+        return order.compactMap { pid in
+            guard let assertions = byPID[pid], let first = assertions.first else { return nil }
+            let node = monitor.nodes.first { $0.pids.contains(pid) }
+            return WidgetSnapshot.SleepBlocker(
+                name: node?.name ?? first.processName,
+                reason: first.reason,
+                keepsDisplayOn: assertions.contains(where: \.preventsDisplaySleep),
+                icon: icon(for: node?.iconPath)
+            )
+        }
     }
 
     /// 32×32 PNG of an app icon, cached by path.

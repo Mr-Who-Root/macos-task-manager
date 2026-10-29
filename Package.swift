@@ -34,6 +34,7 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("WidgetKit"),
                 .linkedFramework("SwiftUI"),
+                .linkedFramework("IOKit"),
             ]
         ),
     ]

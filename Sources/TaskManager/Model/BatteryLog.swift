@@ -13,7 +13,17 @@ final class BatteryLog {
         let power: Double?
     }
 
+    /// Fifteen minutes of the log, as the 24-hour charts show it.
+    struct Bucket: Identifiable, Hashable {
+        let start: Date
+        let charge: Double      // percent, at the end of the 15 minutes
+        let pluggedIn: Bool     // for most of them
+        let power: Double?      // average draw, W
+        var id: Date { start }
+    }
+
     static let span: TimeInterval = 24 * 3600
+    static let bucketLength: TimeInterval = 15 * 60
 
     private(set) var points: [Point] = []
 
@@ -47,6 +57,27 @@ final class BatteryLog {
         if let draw = battery.powerDraw {
             powerSum += draw
             powerCount += 1
+        }
+    }
+
+    static func bucketStart(_ date: Date) -> Date {
+        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / bucketLength).rounded(.down) * bucketLength)
+    }
+
+    /// The end of the 15 minutes in progress, where the 24-hour charts end.
+    static var chartEnd: Date { bucketStart(Date()).addingTimeInterval(bucketLength) }
+
+    func buckets(since start: Date) -> [Bucket] {
+        let grouped = Dictionary(grouping: points.filter { $0.time >= start }, by: { Self.bucketStart($0.time) })
+        return grouped.keys.sorted().compactMap { key in
+            guard let members = grouped[key]?.sorted(by: { $0.time < $1.time }), let last = members.last else { return nil }
+            let powers = members.compactMap(\.power)
+            return Bucket(
+                start: key,
+                charge: last.charge * 100,
+                pluggedIn: members.filter(\.pluggedIn).count * 2 >= members.count,
+                power: powers.isEmpty ? nil : powers.reduce(0, +) / Double(powers.count)
+            )
         }
     }
 

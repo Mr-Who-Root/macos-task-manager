@@ -2,6 +2,7 @@ import Foundation
 import IOKit
 import IOKit.ps
 import IOKit.pwr_mgt
+import TaskManagerShared
 
 struct PowerAdapter: Sendable {
     var name: String
@@ -76,23 +77,11 @@ struct BatterySnapshot: Sendable {
     var isOnBattery: Bool { isPresent && !externalConnected }
 
     var statusText: String {
-        if !isPresent { return "No battery" }
-        if isCharging { return "Charging" }
-        if !externalConnected { return "On battery power" }
-        if isFullyCharged || charge >= 0.995 { return "Fully charged" }
-        return "Plugged in, not charging"
+        guard isPresent else { return "No battery" }
+        return WidgetSnapshot.Battery.status(charging: isCharging, pluggedIn: externalConnected, fullyCharged: isFullyCharged, charge: charge)
     }
 
-    var symbol: String {
-        if isCharging { return "battery.100percent.bolt" }
-        switch charge {
-        case ..<0.1: return "battery.0percent"
-        case ..<0.38: return "battery.25percent"
-        case ..<0.63: return "battery.50percent"
-        case ..<0.88: return "battery.75percent"
-        default: return "battery.100percent"
-        }
-    }
+    var symbol: String { WidgetSnapshot.Battery.symbol(charge: charge, charging: isCharging) }
 }
 
 /// Windows Task Manager's "Power usage" levels.

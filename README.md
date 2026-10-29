@@ -74,11 +74,17 @@ while any item is shown.
 
 ## Widgets
 
-Add them from the widget gallery (desktop or Notification Center): **CPU**, **Memory**, **System** (small,
-medium, large), **Top Apps**, **Temperatures**, **Network** and **Storage**. They follow the chosen design, and
-clicking one opens the matching page. While Task Manager runs it shares live figures with its widgets; when it
-isn't running, the widgets measure CPU, memory, disk and network themselves, and the process and temperature
-widgets ask you to open the app.
+Add them from the widget gallery (desktop or Notification Center). Sixteen widgets, most in several sizes:
+
+| Group | Widgets |
+| --- | --- |
+| **Resources** | **CPU**, **Memory**, **Temperatures** and **Network** (small, medium, large), **GPU** and **Storage** (small, medium), **System** (small, medium, large) and **Top Apps** (medium, large) |
+| **Battery** | **Battery** (charge, time left, the last 24 hours and the apps using the most power), **Battery Usage**, **Power Draw**, **Battery Health** and **Preventing Sleep** |
+| **Mixed** | **At a Glance** (CPU, memory, battery and temperature in a small widget), **Performance** (live graphs for CPU, memory, GPU, network, disk and power) and **Dashboard** (everything at once, large or extra large) |
+
+They follow the chosen design, and clicking one opens the matching page. While Task Manager runs it shares live
+figures with its widgets; when it isn't running, the widgets measure CPU, memory, disk, network and the battery's
+charge themselves, and the process, sensor and power widgets ask you to open the app.
 
 ## Build from source
 

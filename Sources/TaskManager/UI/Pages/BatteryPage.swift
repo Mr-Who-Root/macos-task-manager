@@ -40,7 +40,7 @@ struct BatteryPage: View {
                             }
                             AdapterCard(battery: battery)
                         }
-                        BatteryHistoryChart(points: monitor.batteryLog.points)
+                        BatteryHistoryChart(log: monitor.batteryLog)
                     } else {
                         NoBatteryCard()
                     }
@@ -352,7 +352,7 @@ private struct SectionCard<Content: View>: View {
 // MARK: - Last 24 hours
 
 private struct BatteryHistoryChart: View {
-    let points: [BatteryLog.Point]
+    let log: BatteryLog
     @State private var metric = Metric.level
     @State private var selection: Date?
 
@@ -362,22 +362,16 @@ private struct BatteryHistoryChart: View {
         var title: String { self == .level ? "Battery level" : "Power draw" }
     }
 
-    struct Bucket: Identifiable {
-        let start: Date
-        let charge: Double      // percent
-        let pluggedIn: Bool
-        let power: Double?
-        var id: Date { start }
-    }
+    typealias Bucket = BatteryLog.Bucket
 
-    private static let bucketLength: TimeInterval = 15 * 60
+    private static let bucketLength = BatteryLog.bucketLength
 
     var body: some View {
-        let end = Self.bucketStart(Date()).addingTimeInterval(Self.bucketLength)
+        let end = BatteryLog.chartEnd
         let start = end.addingTimeInterval(-BatteryLog.span)
-        let buckets = Self.buckets(points, from: start)
+        let buckets = log.buckets(since: start)
         let shown = metric == .level ? buckets : buckets.filter { $0.power != nil }
-        let selected = selection.flatMap { date in buckets.first { $0.start == Self.bucketStart(date) } }
+        let selected = selection.flatMap { date in buckets.first { $0.start == BatteryLog.bucketStart(date) } }
         let peak = Fmt.niceCeiling(buckets.compactMap(\.power).max() ?? 0, minimum: 10)
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -437,7 +431,7 @@ private struct BatteryHistoryChart: View {
         .chartXScale(domain: start...end)
         .chartYScale(domain: 0...top)
         .chartXAxis {
-            AxisMarks(values: .stride(by: .hour, count: 3)) { _ in
+            AxisMarks(values: Self.hourTicks(from: start, to: end)) { _ in
                 AxisGridLine().foregroundStyle(Fluent.divider)
                 AxisValueLabel(format: .dateTime.hour()).foregroundStyle(Fluent.textSecondary)
             }
@@ -453,7 +447,20 @@ private struct BatteryHistoryChart: View {
                 }
             }
         }
-        .chartXSelection(value: $selection)
+        .chartOverlay { proxy in
+            GeometryReader { geometry in
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        guard case .active(let location) = phase, let plot = proxy.plotFrame else {
+                            selection = nil
+                            return
+                        }
+                        selection = proxy.value(atX: location.x - geometry[plot].origin.x, as: Date.self)
+                    }
+            }
+        }
     }
 
     private func readout(_ bucket: Bucket?) -> String {
@@ -465,23 +472,17 @@ private struct BatteryHistoryChart: View {
         return "\(time) · \(Int(bucket.charge.rounded()))% · \(bucket.pluggedIn ? "plugged in" : "on battery") · \(power)"
     }
 
-    private static func bucketStart(_ date: Date) -> Date {
-        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / bucketLength).rounded(.down) * bucketLength)
-    }
-
-    /// The level at the end of each 15 minutes, whether the Mac was mostly plugged in, and the average draw.
-    private static func buckets(_ points: [BatteryLog.Point], from start: Date) -> [Bucket] {
-        let grouped = Dictionary(grouping: points.filter { $0.time >= start }, by: { bucketStart($0.time) })
-        return grouped.keys.sorted().compactMap { key in
-            guard let members = grouped[key]?.sorted(by: { $0.time < $1.time }), let last = members.last else { return nil }
-            let powers = members.compactMap(\.power)
-            return Bucket(
-                start: key,
-                charge: last.charge * 100,
-                pluggedIn: members.filter(\.pluggedIn).count * 2 >= members.count,
-                power: powers.isEmpty ? nil : powers.reduce(0, +) / Double(powers.count)
-            )
+    /// Every three hours on the clock, leaving out ticks whose labels would be clipped at either edge.
+    private static func hourTicks(from start: Date, to end: Date) -> [Date] {
+        let calendar = Calendar.current
+        var tick = calendar.startOfDay(for: start)
+        var ticks: [Date] = []
+        while tick < end {
+            if tick.timeIntervalSince(start) >= 1800 && end.timeIntervalSince(tick) >= 3600 { ticks.append(tick) }
+            guard let next = calendar.date(byAdding: .hour, value: 3, to: tick) else { break }
+            tick = next
         }
+        return ticks
     }
 }
 
