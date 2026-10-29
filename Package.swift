@@ -35,6 +35,10 @@ let package = Package(
                 .linkedFramework("WidgetKit"),
                 .linkedFramework("SwiftUI"),
                 .linkedFramework("IOKit"),
+                // Start in NSExtensionMain, as Xcode links app extensions. It records the launch
+                // arguments ExtensionKit needs, then calls the WidgetBundle's main. Without it the
+                // extension traps at launch on recent macOS and no widgets reach the gallery.
+                .unsafeFlags(["-Xlinker", "-e", "-Xlinker", "_NSExtensionMain"]),
             ]
         ),
     ]
