@@ -20,6 +20,8 @@ struct HeatRow: Identifiable {
     var memory: UInt64 = 0
     var disk: Double = 0
     var network: Double = 0
+    var powerUsage: PowerUsage = .veryLow
+    var powerTrend: PowerUsage = .veryLow
     var pid: Int32?
     var processName = ""
     var publisher = ""
@@ -312,6 +314,8 @@ private struct HeatRowView: View {
         case .processName: text(row.processName)
         case .user: text(row.user)
         case .architecture: text(row.architecture)
+        case .power: text(row.powerUsage.title)
+        case .powerTrend: text(row.powerTrend.title)
         }
     }
 
@@ -375,6 +379,8 @@ private struct HeatRowView: View {
         case .memory: return Heat.color(Double(row.memory) / Double(max(memoryTotal, 1)) * 5)
         case .disk: return Heat.color(row.disk / 20_971_520)
         case .network: return Heat.color(row.network * 8 / 25_000_000)
+        case .power: return Heat.color(row.powerUsage.heat)
+        case .powerTrend: return Heat.color(row.powerTrend.heat)
         default: return .clear
         }
     }

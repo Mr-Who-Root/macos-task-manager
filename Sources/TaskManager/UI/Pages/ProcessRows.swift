@@ -22,6 +22,8 @@ enum ProcessRows {
             memory: node.memory,
             disk: node.diskRate,
             network: node.netRate,
+            powerUsage: powerUsage(watts: node.power, cpu: node.cpu, restricted: main?.restricted ?? false),
+            powerTrend: powerUsage(watts: node.powerTrend, cpu: node.cpuTrend, restricted: main?.restricted ?? false),
             pid: grouped ? nil : node.mainPID,
             processName: main?.name ?? "",
             publisher: CodeSigning.cachedPublisher(node.path) ?? "",
@@ -45,6 +47,8 @@ enum ProcessRows {
             memory: process.memory,
             disk: process.diskRate,
             network: process.netRate,
+            powerUsage: powerUsage(watts: process.power, cpu: process.cpu, restricted: process.restricted),
+            powerTrend: powerUsage(watts: process.powerTrend, cpu: process.cpuTrend, restricted: process.restricted),
             pid: process.pid,
             processName: process.name,
             publisher: CodeSigning.cachedPublisher(process.path) ?? "",
@@ -53,6 +57,12 @@ enum ProcessRows {
             architecture: process.architecture,
             target: RowTarget(process: process, kind: node.kind, isApp: node.isApp && process.pid == node.mainPID)
         )
+    }
+
+    /// Measured energy where macOS reports it; estimated from CPU use on Intel Macs and for
+    /// other users' processes, whose energy isn't readable.
+    static func powerUsage(watts: Double, cpu: Double, restricted: Bool) -> PowerUsage {
+        Monitor.shared.energyAvailable && !restricted ? PowerUsage(watts: watts) : PowerUsage(cpuPercent: cpu)
     }
 
     static func matches(_ query: String, node: ProcNode) -> Bool {
@@ -100,6 +110,8 @@ enum ProcessRows {
         case .memory: return value(a.memory, b.memory)
         case .disk: return value(a.diskRate, b.diskRate)
         case .network: return value(a.netRate, b.netRate)
+        case .power: return value(a.power, b.power, then: a.cpu, b.cpu)
+        case .powerTrend: return value(a.powerTrend, b.powerTrend, then: a.cpuTrend, b.cpuTrend)
         }
     }
 
@@ -116,11 +128,19 @@ enum ProcessRows {
         case .memory: return value(a.memory, b.memory)
         case .disk: return value(a.diskRate, b.diskRate)
         case .network: return value(a.netRate, b.netRate)
+        case .power: return value(a.power, b.power, then: a.cpu, b.cpu)
+        case .powerTrend: return value(a.powerTrend, b.powerTrend, then: a.cpuTrend, b.cpuTrend)
         }
     }
 
     private static func value<T: Comparable>(_ a: T, _ b: T) -> ComparisonResult {
         a < b ? .orderedAscending : (a > b ? .orderedDescending : .orderedSame)
+    }
+
+    /// Power, falling back to CPU where there's no energy figure (Intel Macs, other users' processes).
+    private static func value(_ a: Double, _ b: Double, then c: Double, _ d: Double) -> ComparisonResult {
+        let order = value(a, b)
+        return order == .orderedSame ? value(c, d) : order
     }
 
     static func totals(_ monitor: Monitor) -> HeaderTotals {

@@ -86,6 +86,7 @@ struct SystemSnapshot: Sendable {
     var networks: [NetworkSnapshot] = []
     var gpu: GPUSnapshot?
     var sensors = SensorSnapshot()
+    var battery = BatterySnapshot()
 }
 
 /// Samples machine-wide counters. Not thread-safe: use from a single serial queue.
@@ -101,6 +102,7 @@ final class SystemSampler {
     private var volumes: [(bsd: String, name: String, isRoot: Bool, capacity: UInt64)] = []
     private var netMeta: [NetMeta] = []
     private let sensorSampler = SensorSampler()
+    private let batterySampler = BatterySampler()
     private var lastUptime: UInt64 = 0
     private var tick = 0
 
@@ -121,6 +123,7 @@ final class SystemSampler {
         snapshot.networks = sampleNetworks(elapsed: elapsed)
         snapshot.gpu = Self.sampleGPU()
         snapshot.sensors = sensorSampler.sample()
+        snapshot.battery = batterySampler.sample()
         return snapshot
     }
 

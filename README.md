@@ -29,10 +29,11 @@ app and relaunches it.
 
 | Page | What it shows |
 | --- | --- |
-| **Processes** | Apps, background processes and macOS processes, grouped with their helper processes. Heat-mapped CPU / Memory / Disk / Network cells, header totals, sortable and resizable columns, optional Publisher / PID / Process name / User / Threads / Architecture columns (right-click the header). |
+| **Processes** | Apps, background processes and macOS processes, grouped with their helper processes. Heat-mapped CPU / Memory / Disk / Network cells, header totals, sortable and resizable columns, optional Publisher / PID / Process name / User / Threads / Architecture / Power usage / Power usage trend columns (right-click the header). |
 | **Performance** | CPU (overall or per logical processor, optional kernel time), Memory (with composition bar), each Disk, each network adapter, and GPU, all with 60-sample graphs. |
 | **Temperatures** | CPU performance and efficiency cores, GPU, SoC, memory, SSD, battery, Wi-Fi, airflow and power-delivery sensors (average, hottest, min/max, history) plus fan speeds and thermal pressure. |
-| **App history** | CPU time, network and disk usage per app, recorded while Task Manager runs and saved between launches. |
+| **Battery** | Charge, time remaining and charge rate; whole-Mac power draw; health (maximum capacity, cycle count, condition); battery temperature; the power adapter; battery level and power draw over the last 24 hours; battery usage by app (power now, two-minute trend, energy used, idle wake-ups); and which apps are preventing sleep. |
+| **App history** | CPU time, network, disk and energy usage per app, recorded while Task Manager runs and saved between launches. |
 | **Startup apps** | Login items plus third-party launch agents and daemons, with publisher (from the code signature), status and enable/disable. |
 | **Users** | Per-account totals, expandable to that account's apps. |
 | **Details** | Every process: PID, status, user, CPU, CPU time, memory, threads, architecture (Rosetta shows as x64), priority and path. |
@@ -118,14 +119,20 @@ The website lives in `docs/` and is served by GitHub Pages from the `main` branc
 - The widget extension is sandboxed. Its only file access is read-only access to
   `~/Library/Application Support/TaskManager/`, where the app writes `widget-snapshot.json`.
 - macOS has no per-process GPU accounting, so there is no GPU column on the Processes page.
+- Per-app power is the CPU energy macOS accounts to each process, which Apple silicon reports and Intel Macs
+  don't. On Intel Macs, and for other users' processes, Power usage is estimated from CPU use instead.
+- Battery figures come from IOPowerSources and the battery driver. Whole-Mac power draw comes from the power
+  telemetry Apple silicon laptops report; elsewhere it's the battery's discharge rate, so it's only shown on
+  battery power. The 24-hour chart is recorded once a minute while Task Manager runs.
+- Preventing sleep lists apps' power assertions (`pmset -g assertions`), leaving out powerd's own.
 
 ## Layout
 
 ```
 Sources/TaskManager/
   App/        entry point, menu commands, app delegate, debug-only UI test hooks
-  Core/       samplers (libproc, sysctl, IOKit, SMC/HID sensors, routing socket), grouping, launchd, actions, updater
-  Model/      Monitor (sampling + history), settings, UI state, app history, widget publisher
+  Core/       samplers (libproc, sysctl, IOKit, SMC/HID sensors, battery and power, routing socket), grouping, launchd, actions, updater
+  Model/      Monitor (sampling + history), settings, UI state, app history, battery log, widget publisher
   UI/         window shell, designs and tokens, heat table, graphs, menu bar, pages, dialogs
 Sources/TaskManagerWidgets/   WidgetKit extension (packaged as Contents/PlugIns/TaskManagerWidgets.appex)
 Sources/TaskManagerShared/    the snapshot model shared by the app and its widgets

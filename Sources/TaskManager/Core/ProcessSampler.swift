@@ -25,6 +25,12 @@ struct ProcessSample: Identifiable, Hashable, Sendable {
     var diskReadRate: Double = 0     // bytes/s
     var diskWriteRate: Double = 0
     var netRate: Double = 0          // bytes/s
+    /// Energy macOS accounts to the process, as watts (0 when unreadable or on Intel).
+    var power: Double = 0
+    /// Averages over about two minutes, for "Power usage trend".
+    var powerTrend: Double = 0
+    var cpuTrend: Double = 0
+    var idleWakeups: Double = 0      // per second
     var threads: Int = 0
     /// Base scheduling priority (4 = background/throttled, 31 = default); 0 when unknown.
     var basePriority: Int32 = 0
@@ -35,6 +41,7 @@ struct ProcessSample: Identifiable, Hashable, Sendable {
     var cpuDelta: Double = 0
     var diskDelta: Double = 0
     var netDelta: Double = 0
+    var energyDelta: Double = 0      // joules
 
     var id: Int32 { pid }
     var diskRate: Double { diskReadRate + diskWriteRate }
@@ -88,10 +95,20 @@ final class ProcessSampler {
         let diskRead: UInt64
         let diskWrite: UInt64
         let netBytes: UInt64
+        let energyNJ: UInt64
+        let idleWakeups: UInt64
+        let powerTrend: Double
+        let cpuTrend: Double
+        /// Seconds the trends cover so far, up to `trendWindow`.
+        let trendSpan: Double
     }
 
     private static let translatedFlag: Int32 = 0x0002_0000  // P_TRANSLATED
+    /// Windows averages "Power usage trend" over two minutes.
+    private static let trendWindow: Double = 120
 
+    /// True once any process has reported energy. Apple silicon accounts energy per process; Intel Macs don't.
+    private(set) var energyAvailable = false
     private var previous: [Int32: Previous] = [:]
     private var lastUptime: UInt64 = 0
     private var paths: [Int32: (start: Date, path: String?)] = [:]
@@ -122,6 +139,7 @@ final class ProcessSampler {
         samples.reserveCapacity(kinfos.count)
         var cpuNs: [Int32: UInt64] = [:]
         var disk: [Int32: (read: UInt64, write: UInt64)] = [:]
+        var energy: [Int32: (nanojoules: UInt64, idleWakeups: UInt64)] = [:]
         var anyRestricted = false
 
         for kp in kinfos {
@@ -132,10 +150,10 @@ final class ProcessSampler {
             let path = executablePath(pid: pid, start: start)
             let name = path.map { ($0 as NSString).lastPathComponent } ?? Self.command(kp)
 
-            var usage = rusage_info_v4()
+            var usage = rusage_info_v6()
             let readable = withUnsafeMutablePointer(to: &usage) { pointer in
                 pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
-                    proc_pid_rusage(pid, RUSAGE_INFO_V4, $0)
+                    proc_pid_rusage(pid, RUSAGE_INFO_V6, $0)
                 }
             } == 0
 
@@ -157,6 +175,8 @@ final class ProcessSampler {
                 cpuNs[pid] = UInt64(Double(usage.ri_user_time &+ usage.ri_system_time) * nsPerAbsoluteTick)
                 sample.memory = usage.ri_phys_footprint
                 disk[pid] = (usage.ri_diskio_bytesread, usage.ri_diskio_byteswritten)
+                energy[pid] = (usage.ri_energy_nj, usage.ri_pkg_idle_wkups)
+                if usage.ri_energy_nj > 0 { energyAvailable = true }
                 var info = proc_taskinfo()
                 if proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, Int32(MemoryLayout<proc_taskinfo>.size)) > 0 {
                     sample.threads = Int(info.pti_threadnum)
@@ -200,7 +220,9 @@ final class ProcessSampler {
             let cpu = cpuNs[pid] ?? 0
             let io = disk[pid] ?? (0, 0)
             let net = netBytes[pid] ?? 0
+            let power = energy[pid] ?? (0, 0)
             samples[i].cpuTime = Double(cpu) / 1_000_000_000
+            var trendSpan = 0.0
 
             if let old = previous[pid], old.start == samples[i].startTime, elapsed > 0 {
                 let dCPU = cpu >= old.cpuNs ? Double(cpu - old.cpuNs) / 1_000_000_000 : 0
@@ -215,8 +237,21 @@ final class ProcessSampler {
                 samples[i].diskDelta = dRead + dWrite
                 samples[i].netRate = dNet / elapsed
                 samples[i].netDelta = dNet
+                let dEnergy = power.nanojoules >= old.energyNJ ? Double(power.nanojoules - old.energyNJ) / 1_000_000_000 : 0
+                samples[i].power = dEnergy / elapsed
+                samples[i].energyDelta = dEnergy
+                samples[i].idleWakeups = power.idleWakeups >= old.idleWakeups ? Double(power.idleWakeups - old.idleWakeups) / elapsed : 0
+                // A running mean until the window is full, then an exponential average over it.
+                trendSpan = min(old.trendSpan + elapsed, Self.trendWindow)
+                let weight = elapsed / trendSpan
+                samples[i].powerTrend = old.powerTrend + (samples[i].power - old.powerTrend) * weight
+                samples[i].cpuTrend = old.cpuTrend + (samples[i].cpu - old.cpuTrend) * weight
             }
-            next[pid] = Previous(start: samples[i].startTime, cpuNs: cpu, diskRead: io.read, diskWrite: io.write, netBytes: net)
+            next[pid] = Previous(
+                start: samples[i].startTime, cpuNs: cpu, diskRead: io.read, diskWrite: io.write, netBytes: net,
+                energyNJ: power.nanojoules, idleWakeups: power.idleWakeups,
+                powerTrend: samples[i].powerTrend, cpuTrend: samples[i].cpuTrend, trendSpan: trendSpan
+            )
         }
         previous = next
         if tick % 30 == 0 {

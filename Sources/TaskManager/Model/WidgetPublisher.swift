@@ -101,6 +101,7 @@ enum DeepLink {
         switch parts.first {
         case "processes": state.page = .processes
         case "temperatures": state.page = .temperatures
+        case "battery": state.page = .battery
         case "performance":
             state.page = .performance
             let system = Monitor.shared.system

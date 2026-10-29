@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable {
-    case processes, performance, temperatures, appHistory, startup, users, details, services, settings
+    case processes, performance, temperatures, battery, appHistory, startup, users, details, services, settings
 
     var id: String { rawValue }
 
@@ -12,6 +12,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .processes: return "Processes"
         case .performance: return "Performance"
         case .temperatures: return "Temperatures"
+        case .battery: return "Battery"
         case .appHistory: return "App history"
         case .startup: return "Startup apps"
         case .users: return "Users"
@@ -26,6 +27,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .processes: return "square.grid.2x2"
         case .performance: return "waveform.path.ecg"
         case .temperatures: return "thermometer.medium"
+        case .battery: return "battery.75percent"
         case .appHistory: return "clock.arrow.circlepath"
         case .startup: return "gauge.with.dots.needle.33percent"
         case .users: return "person.2"
@@ -35,8 +37,11 @@ enum Page: String, CaseIterable, Identifiable {
         }
     }
 
-    var shortcut: KeyEquivalent {
-        KeyEquivalent(Character(String((Page.allCases.firstIndex(of: self) ?? 0) + 1)))
+    /// ⌘1 to ⌘9 for the pages in order; Settings uses ⌘, like other Mac apps.
+    var shortcut: KeyboardShortcut? {
+        if self == .settings { return KeyboardShortcut(",") }
+        guard let index = Page.allCases.firstIndex(of: self), index < 9 else { return nil }
+        return KeyboardShortcut(KeyEquivalent(Character(String(index + 1))))
     }
 }
 

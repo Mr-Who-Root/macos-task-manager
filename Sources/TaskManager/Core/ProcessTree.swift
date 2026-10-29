@@ -46,10 +46,15 @@ struct ProcNode: Identifiable, Sendable {
     var memory: UInt64 = 0
     var diskRate: Double = 0
     var netRate: Double = 0
+    var power: Double = 0
+    var powerTrend: Double = 0
+    var cpuTrend: Double = 0
+    var idleWakeups: Double = 0
     var threads: Int = 0
     var cpuDelta: Double = 0
     var diskDelta: Double = 0
     var netDelta: Double = 0
+    var energyDelta: Double = 0
 
     var main: ProcessSample? { members.first { $0.pid == mainPID } ?? members.first }
     var uid: UInt32 { main?.uid ?? 0 }
@@ -78,16 +83,22 @@ struct ProcNode: Identifiable, Sendable {
 
     mutating func recalculate() {
         cpu = 0; memory = 0; diskRate = 0; netRate = 0; threads = 0
-        cpuDelta = 0; diskDelta = 0; netDelta = 0
+        power = 0; powerTrend = 0; cpuTrend = 0; idleWakeups = 0
+        cpuDelta = 0; diskDelta = 0; netDelta = 0; energyDelta = 0
         for m in members {
             cpu += m.cpu
             memory += m.memory
             diskRate += m.diskRate
             netRate += m.netRate
+            power += m.power
+            powerTrend += m.powerTrend
+            cpuTrend += m.cpuTrend
+            idleWakeups += m.idleWakeups
             threads += m.threads
             cpuDelta += m.cpuDelta
             diskDelta += m.diskDelta
             netDelta += m.netDelta
+            energyDelta += m.energyDelta
         }
         cpu = min(cpu, 100)
     }

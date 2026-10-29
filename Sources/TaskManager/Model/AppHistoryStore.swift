@@ -12,6 +12,7 @@ final class AppHistoryStore {
         var cpuTime: Double
         var networkBytes: Double
         var diskBytes: Double
+        var energy: Double = 0      // joules
         var lastUsed: Date
     }
 
@@ -43,7 +44,7 @@ final class AppHistoryStore {
         var updated = entries
         var changed = false
         let now = Date()
-        for node in nodes where node.cpuDelta > 0 || node.netDelta > 0 || node.diskDelta > 0 {
+        for node in nodes where node.cpuDelta > 0 || node.netDelta > 0 || node.diskDelta > 0 || node.energyDelta > 0 {
             var entry = updated[node.historyKey] ?? Entry(
                 id: node.historyKey, name: node.name, iconPath: node.iconPath, kind: node.kind.historyTag,
                 cpuTime: 0, networkBytes: 0, diskBytes: 0, lastUsed: now
@@ -53,6 +54,7 @@ final class AppHistoryStore {
             entry.cpuTime += node.cpuDelta
             entry.networkBytes += node.netDelta
             entry.diskBytes += node.diskDelta
+            entry.energy += node.energyDelta
             entry.lastUsed = now
             updated[node.historyKey] = entry
             changed = true
@@ -79,5 +81,21 @@ final class AppHistoryStore {
         since = Date()
         dirty = true
         save()
+    }
+}
+
+extension AppHistoryStore.Entry {
+    /// History saved by earlier versions has no energy figure.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        iconPath = try c.decodeIfPresent(String.self, forKey: .iconPath)
+        kind = try c.decode(String.self, forKey: .kind)
+        cpuTime = try c.decode(Double.self, forKey: .cpuTime)
+        networkBytes = try c.decode(Double.self, forKey: .networkBytes)
+        diskBytes = try c.decode(Double.self, forKey: .diskBytes)
+        energy = try c.decodeIfPresent(Double.self, forKey: .energy) ?? 0
+        lastUsed = try c.decode(Date.self, forKey: .lastUsed)
     }
 }

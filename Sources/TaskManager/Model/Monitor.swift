@@ -20,6 +20,7 @@ struct SampleResult: Sendable {
     let processes: [ProcessSample]
     let nodes: [ProcNode]
     let system: SystemSnapshot
+    let energyAvailable: Bool
 }
 
 /// Owns the samplers; only ever used from the monitor's serial queue.
@@ -31,7 +32,7 @@ final class SamplingEngine: @unchecked Sendable {
         let processes = processSampler.sample(efficient: efficient)
         let system = systemSampler.sample()
         let nodes = ProcessTreeBuilder.build(processes, apps: apps, currentUID: currentUID)
-        return SampleResult(processes: processes, nodes: nodes, system: system)
+        return SampleResult(processes: processes, nodes: nodes, system: system, energyAvailable: processSampler.energyAvailable)
     }
 }
 
@@ -62,10 +63,15 @@ final class Monitor {
     private(set) var fanHistory: [Int: History] = [:]
     /// Lowest and highest reading per sensor since Task Manager started.
     private(set) var sensorExtremes: [String: ClosedRange<Double>] = [:]
+    private(set) var powerDrawHistory = History()
+    private(set) var batteryTemperatureHistory = History()
+    /// False on Macs that don't account energy per process (Intel); power usage is then estimated from CPU use.
+    private(set) var energyAvailable = false
     /// Bumped when background code-signature lookups finish so Publisher columns refresh.
     private(set) var publisherRevision = 0
 
     let appHistory = AppHistoryStore()
+    let batteryLog = BatteryLog()
 
     @ObservationIgnored private let engine = SamplingEngine()
     @ObservationIgnored private let queue = DispatchQueue(label: "TaskManager.sampling", qos: .userInitiated)
@@ -200,6 +206,13 @@ final class Monitor {
         }
         sensorExtremes = extremes
 
+        energyAvailable = result.energyAvailable
+        if s.battery.isPresent {
+            if let draw = s.battery.powerDraw { powerDrawHistory.push(draw) }
+            if let celsius = batteryTemperature { batteryTemperatureHistory.push(celsius) }
+            batteryLog.record(s.battery)
+        }
+
         appHistory.record(result.nodes)
         EfficiencyStore.shared.reconcile(with: result.processes)
         WidgetPublisher.shared.publish(self)
@@ -217,6 +230,11 @@ final class Monitor {
     /// Primary disk activity, shown in the Processes header.
     var diskActiveFraction: Double {
         (system.disks.first(where: \.isSystemDisk) ?? system.disks.first)?.activeTime ?? 0
+    }
+
+    /// The battery's own gas-gauge reading, or the battery sensors' average.
+    var batteryTemperature: Double? {
+        system.battery.temperature ?? system.sensors.components.first { $0.component == .battery }?.average
     }
 
     /// Throughput relative to link speed across active adapters, shown in the Processes header.

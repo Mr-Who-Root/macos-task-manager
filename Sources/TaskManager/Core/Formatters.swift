@@ -122,6 +122,33 @@ enum Fmt {
         return String(format: "%.\(decimals)f °%@", value, fahrenheit ? "F" : "C")
     }
 
+    /// Power: "0 W", "45 mW", "2.35 W", "18.2 W".
+    static func watts(_ value: Double) -> String {
+        let v = abs(value)
+        if v < 0.0005 { return "0 W" }
+        if v < 0.9995 { return "\(Int((v * 1000).rounded())) mW" }
+        return v < 10 ? String(format: "%.2f W", v) : String(format: "%.1f W", v)
+    }
+
+    /// Energy from joules: "0 Wh", "<1 mWh", "12 mWh", "3.4 Wh".
+    static func energy(_ joules: Double) -> String {
+        let wh = max(joules, 0) / 3600
+        if wh == 0 { return "0 Wh" }
+        if wh < 0.0005 { return "<1 mWh" }
+        if wh < 0.9995 { return "\(Int((wh * 1000).rounded())) mWh" }
+        return wh < 100 ? String(format: "%.1f Wh", wh) : String(format: "%.0f Wh", wh)
+    }
+
+    /// Battery time: "45 min", "2 h 05 min".
+    static func duration(minutes: Int) -> String {
+        minutes < 60 ? "\(minutes) min" : String(format: "%d h %02d min", minutes / 60, minutes % 60)
+    }
+
+    /// "6,475 mAh".
+    static func milliampHours(_ value: Double) -> String {
+        (integer.string(from: NSNumber(value: value.rounded())) ?? "\(Int(value))") + " mAh"
+    }
+
     static func rpm(_ value: Double) -> String {
         value < 1 ? "Off" : "\(Int(value.rounded())) RPM"
     }
